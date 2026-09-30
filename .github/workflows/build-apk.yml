@@ -1,0 +1,37 @@
+name: Build FinFlow APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout FinFlow
+        uses: actions/checkout@v6
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Make Gradle executable
+        run: chmod +x gradlew
+
+      - name: Build FinFlow APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload FinFlow APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinFlow-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
