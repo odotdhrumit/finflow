@@ -1,0 +1,6 @@
+{
+  "name": "FinFlow",
+  "description": "Private personal finance manager with offline Room storage, bank SMS & notification transaction detection, savings, investments, loans, and payment reminders.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
