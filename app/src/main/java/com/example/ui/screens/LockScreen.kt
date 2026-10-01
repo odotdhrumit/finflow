@@ -46,6 +46,7 @@ fun LockScreen(
     val activity = remember(context) { context.findFragmentActivity() }
     var enteredPin by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var showResetConfirm by remember { mutableStateOf(false) }
     val appSettings by viewModel.appSettings.collectAsState()
 
     val biometricManager = remember(context) { BiometricManager.from(context) }
@@ -269,6 +270,39 @@ fun LockScreen(
                     }
                 }
             }
+
+            TextButton(
+                onClick = { showResetConfirm = true },
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Text(
+                    text = "Forgot PIN? Reset Lock",
+                    style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                )
+            }
         }
+    }
+
+    if (showResetConfirm) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirm = false },
+            title = { Text("Reset App Lock") },
+            text = { Text("Are you sure you want to reset the app lock? You will be able to access your data immediately and can set a new PIN in Security settings.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.resetAppLock()
+                        showResetConfirm = false
+                    }
+                ) {
+                    Text("Reset & Open App")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirm = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

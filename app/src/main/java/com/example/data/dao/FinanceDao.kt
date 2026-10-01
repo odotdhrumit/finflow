@@ -76,6 +76,9 @@ interface FinanceDao {
     @Query("SELECT * FROM transactions WHERE referenceNumber = :referenceNumber AND referenceNumber != '' LIMIT 1")
     suspend fun findTransactionByReference(referenceNumber: String): Transaction?
 
+    @Query("SELECT * FROM transactions WHERE rawSourceHash = :rawHash AND rawSourceHash != '' LIMIT 1")
+    suspend fun findTransactionByRawHash(rawHash: String): Transaction?
+
     @Query("SELECT * FROM transactions WHERE type = :type AND ABS(amount - :amount) < 0.001 AND ABS(dateMillis - :timestamp) <= :windowMillis ORDER BY dateMillis DESC")
     suspend fun findMatchingTransactions(type: TransactionType, amount: Double, timestamp: Long, windowMillis: Long = 1800000L): List<Transaction>
 
@@ -187,6 +190,9 @@ interface FinanceDao {
     @Query("SELECT * FROM detected_messages WHERE rawText LIKE '%' || :referenceNumber || '%' AND :referenceNumber != '' LIMIT 1")
     suspend fun findDetectedByReference(referenceNumber: String): DetectedMessage?
 
+    @Query("SELECT * FROM detected_messages WHERE rawText = :rawText LIMIT 1")
+    suspend fun findDetectedByExactRawText(rawText: String): DetectedMessage?
+
     @Query("SELECT * FROM detected_messages WHERE status = 'PENDING_REVIEW' AND ABS(parsedAmount - :amount) < 0.001 AND ABS(detectedAtMillis - :timestamp) <= :windowMillis ORDER BY detectedAtMillis DESC")
     suspend fun findMatchingPendingDetected(amount: Double, timestamp: Long, windowMillis: Long = 1800000L): List<DetectedMessage>
 
@@ -230,4 +236,25 @@ interface FinanceDao {
 
     @Query("DELETE FROM detected_messages")
     suspend fun clearDetectedMessages()
+
+    @Query("DELETE FROM accounts WHERE (name = 'SBI Savings' AND accountNumberLast4 = '1234') OR (name = 'HDFC Salary A/C' AND accountNumberLast4 = '6789') OR (name = 'Cash Wallet' AND bankName = 'Cash in Hand')")
+    suspend fun deleteDemoAccounts()
+
+    @Query("DELETE FROM transactions WHERE merchant IN ('Tech Corp Inc', 'Swiggy', 'Amazon', 'Metro Card Recharge', 'Starbucks', 'Gym Membership', 'Electricity Board', 'Netflix', 'Transfer to SBI', 'Supermarket') OR notes IN ('Weekly groceries', 'Flagship upgrade fund', 'Monthly Salary Deposit', 'Lunch order', 'Online shopping')")
+    suspend fun deleteDemoTransactions()
+
+    @Query("DELETE FROM savings_goals WHERE name IN ('New Phone', 'iPhone 16 Pro Fund', 'Emergency Fund')")
+    suspend fun deleteDemoSavings()
+
+    @Query("DELETE FROM investments WHERE name IN ('Nifty 50 Index Fund', 'Nifty 50 Index')")
+    suspend fun deleteDemoInvestments()
+
+    @Query("DELETE FROM loans WHERE name IN ('Personal Loan', 'Car Loan')")
+    suspend fun deleteDemoLoans()
+
+    @Query("DELETE FROM reminders WHERE title IN ('Personal Loan EMI')")
+    suspend fun deleteDemoReminders()
+
+    @Query("DELETE FROM detected_messages WHERE duplicateFingerprint IN ('sample-sbi-fingerprint-1')")
+    suspend fun deleteDemoDetectedMessages()
 }

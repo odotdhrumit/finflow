@@ -63,6 +63,18 @@ class FinFlowApplication : Application() {
             if (categories.isEmpty()) {
                 database.financeDao().insertCategories(CategoryKeywordMatcher.getDefaultCategories())
             }
+            // Do NOT add demo data on app open; cleanly remove any sample data so user starts fresh
+            repository.removeDemoDataIfPresent()
+
+            val settings = database.financeDao().getSettingsDirect()
+            if (settings == null) {
+                database.financeDao().saveSettings(
+                    com.example.data.entity.AppSettings(
+                        id = 1,
+                        hasCompletedOnboarding = true
+                    )
+                )
+            }
         }
     }
 

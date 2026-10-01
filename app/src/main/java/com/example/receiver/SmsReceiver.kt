@@ -55,7 +55,7 @@ class SmsReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun showNotification(context: Context, bank: String, amount: Double, isDebit: Boolean, merchant: String) {
+    private fun showNotification(context: Context, bank: String?, amount: Double, isDebit: Boolean, merchant: String) {
         val openIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             putExtra("OPEN_SCREEN", "sms_detection")
@@ -67,14 +67,15 @@ class SmsReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val displayBank = bank ?: "Bank"
         val formattedAmt = CurrencyFormatter.format(amount)
         val actionText = if (isDebit) "Debited" else "Credited"
 
         val notification = NotificationCompat.Builder(context, FinFlowApplication.CHANNEL_DETECTIONS)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Transaction Detected ($bank)")
+            .setContentTitle("Transaction Detected ($displayBank)")
             .setContentText("$formattedAmt $actionText at $merchant")
-            .setStyle(NotificationCompat.BigTextStyle().bigText("$formattedAmt $actionText from $bank at $merchant. Tap to review."))
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$formattedAmt $actionText from $displayBank at $merchant. Tap to review."))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)

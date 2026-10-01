@@ -2,7 +2,7 @@ package com.example
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.fragment.app.FragmentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -35,10 +35,11 @@ enum class MoreSubScreen {
     NOTIFICATION_DETECTION,
     ANALYTICS,
     SECURITY,
-    BACKUP_EXPORT
+    BACKUP_EXPORT,
+    PARSER_DEBUG
 }
 
-class MainActivity : FragmentActivity() {
+class MainActivity : AppCompatActivity() {
 
     private lateinit var viewModel: FinanceViewModel
 
@@ -252,7 +253,8 @@ fun MainAppContent(
                             onNavigateToNotificationDetection = { moreSubScreen = MoreSubScreen.NOTIFICATION_DETECTION },
                             onNavigateToAnalytics = { moreSubScreen = MoreSubScreen.ANALYTICS },
                             onNavigateToSecurity = { moreSubScreen = MoreSubScreen.SECURITY },
-                            onNavigateToBackupExport = { moreSubScreen = MoreSubScreen.BACKUP_EXPORT }
+                            onNavigateToBackupExport = { moreSubScreen = MoreSubScreen.BACKUP_EXPORT },
+                            onNavigateToParserDebug = { moreSubScreen = MoreSubScreen.PARSER_DEBUG }
                         )
                         MoreSubScreen.ACCOUNTS -> AccountsScreen(
                             viewModel = viewModel,
@@ -286,8 +288,29 @@ fun MainAppContent(
                             viewModel = viewModel,
                             onBack = { moreSubScreen = MoreSubScreen.NONE }
                         )
+                        MoreSubScreen.PARSER_DEBUG -> ParserDebugScreen(
+                            viewModel = viewModel,
+                            onBack = { moreSubScreen = MoreSubScreen.NONE }
+                        )
                     }
                 }
+                else -> HomeScreen(
+                    viewModel = viewModel,
+                    onNavigateToTransactions = { selectedTab = 1 },
+                    onNavigateToAccounts = {
+                        selectedTab = 4
+                        moreSubScreen = MoreSubScreen.ACCOUNTS
+                    },
+                    onNavigateToSmsReview = {
+                        selectedTab = 4
+                        moreSubScreen = MoreSubScreen.SMS_DETECTION
+                    },
+                    onNavigateToReminders = {
+                        selectedTab = 4
+                        moreSubScreen = MoreSubScreen.REMINDERS
+                    },
+                    onOpenQuickAdd = { showQuickAddSheet = true }
+                )
             }
         }
     }

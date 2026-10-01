@@ -28,7 +28,7 @@ import com.example.data.entity.Transaction
         DetectedMessage::class,
         AppSettings::class
     ],
-    version = 1,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -47,7 +47,11 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "finflow_database"
                 )
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(
+                        AppMigrations.MIGRATION_1_2,
+                        AppMigrations.MIGRATION_2_3,
+                        AppMigrations.MIGRATION_1_3
+                    )
                     .build()
                 INSTANCE = instance
                 instance

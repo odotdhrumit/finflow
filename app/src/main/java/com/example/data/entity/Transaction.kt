@@ -33,7 +33,8 @@ enum class ConfirmationStatus {
         Index(value = ["fingerprint"], unique = false),
         Index(value = ["dateMillis"]),
         Index(value = ["accountId"]),
-        Index(value = ["type"])
+        Index(value = ["type"]),
+        Index(value = ["referenceNumber"])
     ]
 )
 data class Transaction(
@@ -54,5 +55,14 @@ data class Transaction(
     val confirmationStatus: ConfirmationStatus = ConfirmationStatus.CONFIRMED,
     val fingerprint: String = "", // Used for duplicate detection (amount + account + date/ref)
     val referenceNumber: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val balanceAfterTransaction: Double? = null,
+    val feeAmount: Double? = null,
+    val upiId: String? = null,
+    val sender: String? = null,
+    val receiver: String? = null,
+    val currency: String = "INR",
+    val parseConfidence: String = "HIGH",
+    val rawSourceHash: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
 )

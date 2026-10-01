@@ -29,6 +29,7 @@ fun MoreScreen(
     onNavigateToAnalytics: () -> Unit,
     onNavigateToSecurity: () -> Unit,
     onNavigateToBackupExport: () -> Unit,
+    onNavigateToParserDebug: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val pendingDetections by viewModel.pendingDetections.collectAsState()
@@ -122,6 +123,13 @@ fun MoreScreen(
                         title = "Bank & App Notifications",
                         subtitle = "Detect UPI & bank notifications securely",
                         onClick = onNavigateToNotificationDetection
+                    )
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    MoreMenuItem(
+                        icon = Icons.Default.BugReport,
+                        title = "Universal Parser Debugger",
+                        subtitle = "Test & simulate SMS and notification messages",
+                        onClick = onNavigateToParserDebug
                     )
                 }
             }

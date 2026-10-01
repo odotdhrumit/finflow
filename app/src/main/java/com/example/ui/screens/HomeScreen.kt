@@ -374,7 +374,7 @@ fun HomeScreen(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text("No accounts added yet. Tap to add your first account or load demo data.")
+                            Text("No accounts added yet. Tap to add your first bank account or cash wallet.")
                         }
                     }
                 } else {

@@ -250,4 +250,161 @@ class FinFlowHardeningTest {
         viewModel.onBiometricAuthenticationSuccess()
         assertFalse("App must unlock on verified system biometric authentication success", viewModel.isAppLocked.value)
     }
+
+    // --- TEST N: Distinguish Transaction Amount from Available Balance ---
+    @Test
+    fun testN_DistinguishTransactionAmountFromBalance() {
+        val msg = "Rs 100 credited to your account. Available balance Rs 8,500."
+        val parsed = SmsTransactionParser.parse("SBI", msg)
+        assertNotNull(parsed)
+        assertEquals("Transaction amount must be 100, NOT 8,500", 100.0, parsed!!.amount, 0.001)
+        assertEquals("Balance must be identified as 8,500", 8500.0, parsed.balanceAfterTransaction ?: 0.0, 0.001)
+        assertEquals(DetectedTransactionType.CREDIT, parsed.detectedType)
+    }
+
+    // --- TEST O: Debit with balance ---
+    @Test
+    fun testO_DebitWithBalance() {
+        val msg = "Your account has been debited by Rs 4,000. Available balance is Rs 12,500."
+        val parsed = SmsTransactionParser.parse("HDFC", msg)
+        assertNotNull(parsed)
+        assertEquals("Transaction amount must be 4,000", 4000.0, parsed!!.amount, 0.001)
+        assertEquals("Balance must be 12,500", 12500.0, parsed.balanceAfterTransaction ?: 0.0, 0.001)
+        assertEquals(DetectedTransactionType.DEBIT, parsed.detectedType)
+    }
+
+    // --- TEST P: Ambiguous wording triggers review ---
+    @Test
+    fun testP_AmbiguousWordingRequiresReview() {
+        val msg = "Transaction info: Rs 500 processed for your card 1234."
+        val parsed = SmsTransactionParser.parse("Bank", msg)
+        assertNotNull(parsed)
+        assertEquals(500.0, parsed!!.amount, 0.001)
+        // If type cannot be definitely confirmed as credit or debit, type is UNKNOWN and requiresReview is true
+        if (parsed.detectedType == DetectedTransactionType.UNKNOWN) {
+            assertTrue("Ambiguous transaction must require review", parsed.requiresReview)
+        }
+    }
+
+    // --- TEST Q: Raw and normalized text preserved for audit ---
+    @Test
+    fun testQ_AuditAndNormalizedTextPreserved() {
+        val msg = "₹4,000 CREDITED to A/C ending 9876 via UPI Ref 445566."
+        val parsed = SmsTransactionParser.parse("SBI", msg)
+        assertNotNull(parsed)
+        assertEquals(msg, parsed!!.rawText)
+        assertTrue(parsed.normalizedText.isNotEmpty())
+        assertEquals("445566", parsed.referenceNumber)
+        assertEquals("9876", parsed.accountLast4)
+    }
+
+    // --- TEST R: Mandatory 10 Genuine ₹100 Repeated Transactions Test -> Expected = 10 transactions, Sum = ₹1,000 ---
+    @Test
+    fun testR_TenGenuine100Transactions_TotalCreditIs1000() = runBlocking {
+        val accId = repository.insertAccount(
+            Account(name = "Salary Account", bankName = "SBI", accountNumberLast4 = "1234", openingBalance = 0.0)
+        )
+        repository.saveSettings(AppSettings(autoConfirmTrustedSms = true))
+
+        // 10 genuine transactions arrive from another account
+        for (i in 1..10) {
+            val sms = "Your A/C ending 1234 has been credited by ₹100 on 01-Oct-26 via UPI. Ref 1000$i."
+            val timestamp = 1700000000000L + (i * 60000L) // 1 minute apart
+            val parsed = SmsTransactionParser.parse("SBI", sms, timestamp = timestamp)
+            assertNotNull("Failed to parse transaction $i", parsed)
+            assertEquals("Amount for transaction $i must be 100", 100.0, parsed!!.amount, 0.001)
+            assertEquals("Type for transaction $i must be CREDIT", DetectedTransactionType.CREDIT, parsed.detectedType)
+
+            repository.processParsedTransaction(parsed, DetectedSourceType.SMS)
+        }
+
+        val allTransactions = database.financeDao().getAllConfirmedTransactionsDirect()
+        assertEquals("Must record exactly 10 genuine transactions", 10, allTransactions.size)
+
+        val totalCredit = allTransactions.sumOf { it.amount }
+        assertEquals("Total credit must be exactly ₹1,000", 1000.0, totalCredit, 0.001)
+    }
+
+    // --- TEST S: User Requested Example: ₹100 credited vs ₹5,850 balance ---
+    @Test
+    fun testS_UserExample_100Credited_5850Balance() {
+        val msg = "₹100 credited to your account. Available balance ₹5,850."
+        val parsed = SmsTransactionParser.parse("SBI", msg)
+        assertNotNull(parsed)
+        assertEquals("Transaction amount must be ₹100", 100.0, parsed!!.amount, 0.001)
+        assertEquals("Transaction type must be CREDIT", DetectedTransactionType.CREDIT, parsed.detectedType)
+        assertEquals("Balance must be ₹5,850", 5850.0, parsed.balanceAfterTransaction ?: 0.0, 0.001)
+    }
+
+    // --- TEST T: User Requested Example: Rs 4,000 debited vs Rs 12,500 balance ---
+    @Test
+    fun testT_UserExample_4000Debited_12500Balance() {
+        val msg = "Rs 4,000 debited. Available balance Rs 12,500."
+        val parsed = SmsTransactionParser.parse("HDFC", msg)
+        assertNotNull(parsed)
+        assertEquals("Transaction amount must be ₹4,000", 4000.0, parsed!!.amount, 0.001)
+        assertEquals("Transaction type must be DEBIT", DetectedTransactionType.DEBIT, parsed.detectedType)
+        assertEquals("Balance must be ₹12,500", 12500.0, parsed.balanceAfterTransaction ?: 0.0, 0.001)
+    }
+
+    // --- TEST U: Transaction + Fee + Balance ---
+    @Test
+    fun testU_TransactionWithFeeAndBalance() {
+        val msg = "₹4,000 debited for utility bill. Convenience fee ₹15.00. Avl bal ₹24,800."
+        val parsed = SmsTransactionParser.parse("Axis", msg)
+        assertNotNull(parsed)
+        assertEquals("Transaction amount must be 4000", 4000.0, parsed!!.amount, 0.001)
+        assertEquals("Fee must be 15", 15.0, parsed.feeAmount ?: 0.0, 0.001)
+        assertEquals("Balance must be 24800", 24800.0, parsed.balanceAfterTransaction ?: 0.0, 0.001)
+        assertEquals(DetectedTransactionType.DEBIT, parsed.detectedType)
+    }
+
+    // --- TEST V: Two genuine ₹100 transactions without ref at 10:00 and 10:05 must BOTH be saved ---
+    @Test
+    fun testV_TwoGenuine100TransactionsWithoutRef_BothSaved() = runBlocking {
+        val accId = repository.insertAccount(
+            Account(name = "Savings", bankName = "SBI", accountNumberLast4 = "1234", openingBalance = 5000.0)
+        )
+        repository.saveSettings(AppSettings(autoConfirmTrustedSms = true))
+
+        val sms1 = "₹100 credited to your A/C 1234 at 10:00 AM."
+        val sms2 = "₹100 credited to your A/C 1234 at 10:05 AM."
+
+        val p1 = SmsTransactionParser.parse("SBI", sms1, timestamp = 1700000000000L) // 10:00
+        val p2 = SmsTransactionParser.parse("SBI", sms2, timestamp = 1700000300000L) // 10:05 (5 mins later)
+
+        assertNotNull(p1)
+        assertNotNull(p2)
+
+        repository.processParsedTransaction(p1!!, DetectedSourceType.SMS)
+        repository.processParsedTransaction(p2!!, DetectedSourceType.SMS)
+
+        val txs = database.financeDao().getAllConfirmedTransactionsDirect()
+        assertEquals("Two genuine ₹100 transactions must BOTH be saved", 2, txs.size)
+        assertEquals(200.0, txs.sumOf { it.amount }, 0.001)
+    }
+
+    // --- TEST W: Verify all numeric amounts specified in requirement ---
+    @Test
+    fun testW_VerifyAllSpecifiedAmounts() {
+        val amountsToTest = listOf(
+            Pair("₹100 credited to account", 100.0),
+            Pair("₹400 debited from account", 400.0),
+            Pair("₹850 paid to Swiggy", 850.0),
+            Pair("₹1,000 received via UPI", 1000.0),
+            Pair("₹4,000 transferred to friend", 4000.0),
+            Pair("₹40,000 deposited in bank", 40000.0),
+            Pair("₹4,00,000 credited from loan", 400000.0),
+            Pair("₹4,000.50 received cashback", 4000.50),
+            Pair("Rs 4,000 paid for shopping", 4000.0),
+            Pair("Rs. 4,000 debited from ATM", 4000.0),
+            Pair("INR 4,000 credited to A/C", 4000.0)
+        )
+
+        for ((text, expectedAmt) in amountsToTest) {
+            val parsed = SmsTransactionParser.parse("Bank", text)
+            assertNotNull("Failed parsing '$text'", parsed)
+            assertEquals("Incorrect amount for '$text'", expectedAmt, parsed!!.amount, 0.001)
+        }
+    }
 }

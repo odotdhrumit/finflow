@@ -173,6 +173,14 @@ class FinanceViewModel(
         }
     }
 
+    fun resetAppLock() {
+        viewModelScope.launch {
+            val settings = repository.getSettingsDirect()
+            repository.saveSettings(settings.copy(appLockEnabled = false, pinHash = "", biometricEnabled = false))
+            _isAppLocked.value = false
+        }
+    }
+
     // --- Transaction Actions ---
     fun addTransaction(
         amount: Double,

@@ -9,19 +9,53 @@ enum class DetectedTransactionType {
     UNKNOWN
 }
 
+enum class ParseConfidence {
+    HIGH,
+    MEDIUM,
+    LOW
+}
+
+enum class MoneyRole {
+    TRANSACTION,
+    BALANCE,
+    FEE,
+    LIMIT,
+    TOTAL,
+    OTHER
+}
+
+data class MoneyCandidate(
+    val rawValue: String,
+    val amount: Double,
+    val startIndex: Int,
+    val endIndex: Int,
+    val role: MoneyRole,
+    val score: Float,
+    val reasoning: String
+)
+
 data class ParsedTransaction(
-    val bank: String,
+    val bank: String?,
     val accountLast4: String?,
     val detectedType: DetectedTransactionType,
     val amount: Double,
-    val merchant: String,
-    val referenceNumber: String,
-    val suggestedCategory: String,
-    val confidenceScore: Float, // 0.0 to 1.0
+    val balanceAfterTransaction: Double? = null,
+    val feeAmount: Double? = null,
+    val merchant: String = "",
+    val sender: String? = null,
+    val receiver: String? = null,
+    val upiId: String? = null,
+    val referenceNumber: String = "",
+    val suggestedCategory: String = "Other",
+    val confidence: ParseConfidence = ParseConfidence.HIGH,
+    val confidenceScore: Float = 1.0f,
+    val confidenceReason: String = "",
     val rawText: String,
-    val timestamp: Long,
+    val normalizedText: String = "",
+    val timestamp: Long = System.currentTimeMillis(),
     val fingerprint: String,
-    val requiresReview: Boolean = false
+    val requiresReview: Boolean = false,
+    val allDetectedMoney: List<MoneyCandidate> = emptyList()
 ) {
     val isDebit: Boolean
         get() = detectedType == DetectedTransactionType.DEBIT

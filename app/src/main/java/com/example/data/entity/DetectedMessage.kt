@@ -31,5 +31,10 @@ data class DetectedMessage(
     val suggestedCategory: String? = null,
     val status: DetectedStatus = DetectedStatus.PENDING_REVIEW,
     val duplicateFingerprint: String = "",
-    val linkedTransactionId: Long? = null
+    val linkedTransactionId: Long? = null,
+    val parsedBalance: Double? = null,
+    val parsedFee: Double? = null,
+    val detectedReferenceNumber: String = "",
+    val confidenceLevel: String = "HIGH",
+    val confidenceReason: String = ""
 )
