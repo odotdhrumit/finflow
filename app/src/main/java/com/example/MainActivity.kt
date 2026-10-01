@@ -2,7 +2,7 @@ package com.example
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -38,7 +38,7 @@ enum class MoreSubScreen {
     BACKUP_EXPORT
 }
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private lateinit var viewModel: FinanceViewModel
 
@@ -60,6 +60,11 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        viewModel.lockApp()
     }
 
     override fun onNewIntent(intent: Intent) {

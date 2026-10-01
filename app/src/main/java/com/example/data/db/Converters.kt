@@ -27,7 +27,11 @@ class Converters {
     fun fromTransactionSource(value: TransactionSource?): String? = value?.name
 
     @TypeConverter
-    fun toTransactionSource(value: String?): TransactionSource? = value?.let { TransactionSource.valueOf(it) }
+    fun toTransactionSource(value: String?): TransactionSource? = try {
+        value?.let { TransactionSource.valueOf(it) }
+    } catch (e: Exception) {
+        TransactionSource.MANUAL
+    }
 
     @TypeConverter
     fun fromConfirmationStatus(value: ConfirmationStatus?): String? = value?.name

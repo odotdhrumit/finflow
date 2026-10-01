@@ -17,6 +17,7 @@ import com.example.data.entity.Loan
 import com.example.data.entity.Reminder
 import com.example.data.entity.SavingsGoal
 import com.example.data.entity.Transaction
+import com.example.data.entity.TransactionType
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -71,6 +72,12 @@ interface FinanceDao {
 
     @Query("SELECT * FROM transactions WHERE fingerprint = :fingerprint LIMIT 1")
     suspend fun findTransactionByFingerprint(fingerprint: String): Transaction?
+
+    @Query("SELECT * FROM transactions WHERE referenceNumber = :referenceNumber AND referenceNumber != '' LIMIT 1")
+    suspend fun findTransactionByReference(referenceNumber: String): Transaction?
+
+    @Query("SELECT * FROM transactions WHERE type = :type AND ABS(amount - :amount) < 0.001 AND ABS(dateMillis - :timestamp) <= :windowMillis ORDER BY dateMillis DESC")
+    suspend fun findMatchingTransactions(type: TransactionType, amount: Double, timestamp: Long, windowMillis: Long = 1800000L): List<Transaction>
 
     @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
     suspend fun getTransactionById(id: Long): Transaction?
@@ -176,6 +183,12 @@ interface FinanceDao {
 
     @Query("SELECT * FROM detected_messages WHERE duplicateFingerprint = :fingerprint LIMIT 1")
     suspend fun findDetectedByFingerprint(fingerprint: String): DetectedMessage?
+
+    @Query("SELECT * FROM detected_messages WHERE rawText LIKE '%' || :referenceNumber || '%' AND :referenceNumber != '' LIMIT 1")
+    suspend fun findDetectedByReference(referenceNumber: String): DetectedMessage?
+
+    @Query("SELECT * FROM detected_messages WHERE status = 'PENDING_REVIEW' AND ABS(parsedAmount - :amount) < 0.001 AND ABS(detectedAtMillis - :timestamp) <= :windowMillis ORDER BY detectedAtMillis DESC")
+    suspend fun findMatchingPendingDetected(amount: Double, timestamp: Long, windowMillis: Long = 1800000L): List<DetectedMessage>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDetectedMessage(message: DetectedMessage): Long

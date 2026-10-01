@@ -1,5 +1,7 @@
 package com.example.parser
 
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.regex.Pattern
@@ -21,14 +23,32 @@ object SmsTransactionParser {
         Pair("Union Bank", listOf("UBIN", "UNIONB")),
         Pair("Paytm", listOf("PAYTM", "PYTM")),
         Pair("Google Pay", listOf("GPAY", "GOOGLEPAY")),
-        Pair("PhonePe", listOf("PHONEPE", "PHNPE"))
+        Pair("PhonePe", listOf("PHONEPE", "PHNPE")),
+        Pair("Cred", listOf("CRED")),
+        Pair("BHIM", listOf("BHIM", "NPCI"))
     )
 
-    // Regex for matching amount in Indian Rupees: Rs. 1,200.50, INR 500, ₹450, 850.00 INR
+    // Regex for matching amount in Indian Rupees without premature truncation:
+    // IMPORTANT: Note the greedy [0-9]{1,3}(?:,[0-9]{2,3})+ requiring at least one comma group
+    // when commas are present, OR [0-9]+ to greedily take all digits when no commas exist.
+    // The negative lookahead (?![0-9]) prevents truncating digits (e.g. 4000 will NOT be captured as 400).
     private val AMOUNT_PATTERNS = listOf(
-        Pattern.compile("""(?:Rs\.?|INR|₹)\s*([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)""", Pattern.CASE_INSENSITIVE),
-        Pattern.compile("""([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)\s*(?:Rs\.?|INR|₹)""", Pattern.CASE_INSENSITIVE),
-        Pattern.compile("""(?:transaction of|txn of|amount of)\s*(?:Rs\.?|INR|₹)?\s*([0-9,]+(?:\.[0-9]{1,2})?)""", Pattern.CASE_INSENSITIVE)
+        // 1. Currency prefix: ₹4,000, Rs. 4,000, INR 4,000, INR4000, ₹400, ₹4,00,000
+        Pattern.compile(
+            """(?:Rs\.?|INR|₹)\s*([0-9]{1,3}(?:,[0-9]{2,3})+(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)(?![0-9])""",
+            Pattern.CASE_INSENSITIVE
+        ),
+        // 2. Currency suffix: 4,000 Rs, 4000 INR, 4,000.00 ₹
+        Pattern.compile(
+            """([0-9]{1,3}(?:,[0-9]{2,3})+(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)\s*(?:Rs\.?|INR|₹)(?![0-9])""",
+            Pattern.CASE_INSENSITIVE
+        ),
+        // 3. Banking action verb followed by amount (with or without currency indicator):
+        // e.g. "debited by 4000", "credited with 4,000.00", "spent 400", "payment of 4,000"
+        Pattern.compile(
+            """(?:debited\s*(?:by|with|for)?|credited\s*(?:by|with|for|to)?|paid|spent|sent|received|withdrawn|deposited|transfer(?:red)?\s*(?:of|for)?|txn\s*(?:of)?|amount\s*(?:of)?|payment\s*(?:of)?)\s*(?:Rs\.?|INR|₹)?\s*([0-9]{1,3}(?:,[0-9]{2,3})+(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)(?![0-9])""",
+            Pattern.CASE_INSENSITIVE
+        )
     )
 
     // Regex for matching account number / card ending: A/C XX1234, ending 1234, *1234, Acct 1234
@@ -38,29 +58,33 @@ object SmsTransactionParser {
         Pattern.compile("""[xX*]{2,}([0-9]{3,4})""")
     )
 
-    // Regex for debit keywords
-    private val DEBIT_KEYWORDS = listOf(
-        "debited", "debit", "spent", "paid", "withdrawn", "sent",
-        "purchase", "transferred to", "deducted", "used at", "txn of",
-        "payment of", "charged", "withdrew"
+    // Credit phrases
+    private val CREDIT_PHRASES = listOf(
+        "credited with", "credited to", "credited by", "credited",
+        "money received", "upi received", "payment received", "received from", "received",
+        "deposited", "added to", "transferred from", "refund", "cashback", "salary", "reversed"
     )
 
-    // Regex for credit keywords
-    private val CREDIT_KEYWORDS = listOf(
-        "credited", "credit", "received", "deposited", "added to",
-        "refund", "cashback", "salary", "transferred from", "reversed"
+    // Debit phrases
+    private val DEBIT_PHRASES = listOf(
+        "debited by", "debited with", "debited",
+        "upi payment", "payment made", "payment of", "paid to", "paid",
+        "sent to", "sent", "spent at", "spent", "withdrawn from", "withdrawn",
+        "transferred to", "purchase of", "purchase", "deducted", "charged", "withdrew", "txn of"
     )
 
-    // Regex for reference / UPI RRN
+    // Regex for reference / UPI RRN / UTR / Txn ID
     private val REF_PATTERNS = listOf(
-        Pattern.compile("""(?:ref|rrn|upi ref|ref no|txn id|transaction id)[:\s]*([0-9a-zA-Z]{6,16})""", Pattern.CASE_INSENSITIVE),
-        Pattern.compile("""UPI/([0-9a-zA-Z]+)""", Pattern.CASE_INSENSITIVE)
+        Pattern.compile("""(?:UPI\s*(?:ref|rrn|txn|id|reference)?|UTR|ref\s*(?:no\.?|id|num)?|txn\s*(?:id|no\.?)?)[:\s/]+([0-9a-zA-Z]{6,22})""", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("""(?:UPI|IMPS|NEFT)/([0-9a-zA-Z]{6,22})""", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("""RRN[:\s]*([0-9a-zA-Z]{6,22})""", Pattern.CASE_INSENSITIVE)
     )
 
-    // Regex for merchant / payee
+    // Regex for merchant / payee / VPA
     private val MERCHANT_PATTERNS = listOf(
-        Pattern.compile("""(?:at|to|info|towards|vpa|paid to|transferred to)\s+([A-Za-z0-9@._\-&]{3,24})""", Pattern.CASE_INSENSITIVE),
-        Pattern.compile("""VPA\s+([A-Za-z0-9@._\-]+)""", Pattern.CASE_INSENSITIVE)
+        Pattern.compile("""(?:paid\s+to|transferred\s+to|sent\s+to|received\s+from|from|at|to|towards)\s+([A-Za-z0-9@._\-&]{3,30})""", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("""VPA\s+([A-Za-z0-9@._\-]+)""", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("""info[:\s]+([A-Za-z0-9@._\-&]{3,30})""", Pattern.CASE_INSENSITIVE)
     )
 
     fun parse(sender: String, messageBody: String, timestamp: Long = System.currentTimeMillis()): ParsedTransaction? {
@@ -71,20 +95,20 @@ object SmsTransactionParser {
             return null
         }
 
-        // 1. Detect Bank
+        // 1. Detect Bank / Source
         val detectedBank = detectBank(sender, messageBody)
 
-        // 2. Extract Amount
+        // 2. Extract Amount using safe decimal parser
         val amount = extractAmount(messageBody) ?: return null
         if (amount <= 0.0) return null
 
         // 3. Extract Debit or Credit
-        val isDebit = detectDebitCredit(lowerText) ?: return null
+        val detectedType = detectDebitCredit(lowerText)
 
         // 4. Extract Account Last 4
         val accountLast4 = extractAccountLast4(messageBody)
 
-        // 5. Extract Reference number
+        // 5. Extract Reference / UTR / UPI Ref number
         val refNo = extractRefNumber(messageBody)
 
         // 6. Extract Merchant / Description
@@ -93,7 +117,7 @@ object SmsTransactionParser {
         // 7. Suggest Category
         val suggestedCategory = CategoryKeywordMatcher.suggestCategory(
             text = "$merchant $messageBody",
-            isIncome = !isDebit
+            isIncome = detectedType == DetectedTransactionType.CREDIT
         )
 
         // 8. Calculate Confidence Score
@@ -101,17 +125,29 @@ object SmsTransactionParser {
         if (accountLast4 != null) confidence += 0.2f
         if (refNo.isNotEmpty()) confidence += 0.15f
         if (detectedBank != "Bank") confidence += 0.15f
+        if (detectedType == DetectedTransactionType.UNKNOWN) {
+            confidence = 0.2f
+        }
 
-        // 9. Generate Duplicate Fingerprint
-        // We use hash of Bank + AccountLast4 + Amount + (RefNo or rounded time)
-        val timeKey = timestamp / (1000 * 60 * 30) // 30-minute bucket
-        val fingerprintInput = "$detectedBank-$accountLast4-${String.format(Locale.US, "%.2f", amount)}-$isDebit-${if (refNo.isNotEmpty()) refNo else timeKey}"
-        val fingerprint = sha256(fingerprintInput)
+        val requiresReview = confidence < 0.7f ||
+                detectedType == DetectedTransactionType.UNKNOWN ||
+                accountLast4 == null
+
+        // 9. Generate Stable Duplicate Fingerprint
+        val fingerprint = generateFingerprint(
+            bank = detectedBank,
+            accountLast4 = accountLast4,
+            amount = amount,
+            type = detectedType,
+            referenceNumber = refNo,
+            merchant = merchant,
+            timestamp = timestamp
+        )
 
         return ParsedTransaction(
             bank = detectedBank,
             accountLast4 = accountLast4,
-            isDebit = isDebit,
+            detectedType = detectedType,
             amount = amount,
             merchant = merchant,
             referenceNumber = refNo,
@@ -119,14 +155,39 @@ object SmsTransactionParser {
             confidenceScore = confidence.coerceIn(0.0f, 1.0f),
             rawText = messageBody,
             timestamp = timestamp,
-            fingerprint = fingerprint
+            fingerprint = fingerprint,
+            requiresReview = requiresReview
         )
+    }
+
+    fun generateFingerprint(
+        bank: String,
+        accountLast4: String?,
+        amount: Double,
+        type: DetectedTransactionType,
+        referenceNumber: String,
+        merchant: String,
+        timestamp: Long
+    ): String {
+        // Priority 1: Bank transaction/reference ID / UPI RRN / UTR
+        if (referenceNumber.isNotBlank()) {
+            val cleanRef = referenceNumber.trim().uppercase(Locale.ENGLISH)
+            return sha256("REF-$cleanRef")
+        }
+
+        // Priority 2: Fallback fingerprint with 30-minute bucket + normalized fields
+        val timeBucket = timestamp / (1000 * 60 * 30) // 30-minute window
+        val amountFormatted = String.format(Locale.US, "%.2f", amount)
+        val normMerchant = merchant.trim().lowercase(Locale.ENGLISH)
+        val normAccount = accountLast4 ?: "NOACC"
+        return sha256("FBN-$bank-$normAccount-$amountFormatted-$type-$normMerchant-$timeBucket")
     }
 
     private fun isOtpOrVerification(lowerText: String): Boolean {
         if (lowerText.contains("otp") || lowerText.contains("one time password") ||
             lowerText.contains("verification code") || lowerText.contains("security code") ||
-            lowerText.contains("do not share this") || lowerText.contains("is your login code")
+            lowerText.contains("do not share this") || lowerText.contains("is your login code") ||
+            lowerText.contains("is your secret code")
         ) {
             // Check if it's strictly an authentication message rather than a transaction notification
             if (!lowerText.contains("debited") && !lowerText.contains("credited") && !lowerText.contains("spent")) {
@@ -148,34 +209,50 @@ object SmsTransactionParser {
         return "Bank"
     }
 
-    private fun extractAmount(text: String): Double? {
+    fun extractAmount(text: String): Double? {
         for (pattern in AMOUNT_PATTERNS) {
             val matcher = pattern.matcher(text)
             if (matcher.find()) {
-                val match = matcher.group(1)?.replace(",", "")?.trim()
-                val parsed = match?.toDoubleOrNull()
-                if (parsed != null && parsed > 0.0) {
-                    return parsed
+                val match = matcher.group(1)?.replace(",", "")?.trim() ?: continue
+                try {
+                    val bd = BigDecimal(match).setScale(2, RoundingMode.HALF_UP)
+                    if (bd > BigDecimal.ZERO) {
+                        return bd.toDouble()
+                    }
+                } catch (e: Exception) {
+                    // Fallthrough to next pattern if any
                 }
             }
         }
         return null
     }
 
-    private fun detectDebitCredit(lowerText: String): Boolean? {
-        val hasDebit = DEBIT_KEYWORDS.any { lowerText.contains(it) }
-        val hasCredit = CREDIT_KEYWORDS.any { lowerText.contains(it) }
+    fun detectDebitCredit(lowerText: String): DetectedTransactionType {
+        // Find first occurrence of credit or debit phrases
+        var firstCreditIndex = Int.MAX_VALUE
+        for (phrase in CREDIT_PHRASES) {
+            val idx = lowerText.indexOf(phrase)
+            if (idx in 0 until firstCreditIndex) {
+                firstCreditIndex = idx
+            }
+        }
+
+        var firstDebitIndex = Int.MAX_VALUE
+        for (phrase in DEBIT_PHRASES) {
+            val idx = lowerText.indexOf(phrase)
+            if (idx in 0 until firstDebitIndex) {
+                firstDebitIndex = idx
+            }
+        }
 
         return when {
-            hasDebit && !hasCredit -> true
-            hasCredit && !hasDebit -> false
-            hasDebit && hasCredit -> {
-                // Determine order of occurrence
-                val firstDebitIndex = DEBIT_KEYWORDS.map { lowerText.indexOf(it) }.filter { it >= 0 }.minOrNull() ?: Int.MAX_VALUE
-                val firstCreditIndex = CREDIT_KEYWORDS.map { lowerText.indexOf(it) }.filter { it >= 0 }.minOrNull() ?: Int.MAX_VALUE
-                firstDebitIndex < firstCreditIndex
+            firstCreditIndex != Int.MAX_VALUE && firstDebitIndex == Int.MAX_VALUE -> DetectedTransactionType.CREDIT
+            firstDebitIndex != Int.MAX_VALUE && firstCreditIndex == Int.MAX_VALUE -> DetectedTransactionType.DEBIT
+            firstCreditIndex != Int.MAX_VALUE && firstDebitIndex != Int.MAX_VALUE -> {
+                if (firstCreditIndex < firstDebitIndex) DetectedTransactionType.CREDIT else DetectedTransactionType.DEBIT
             }
-            else -> null // Unknown direction
+            lowerText.contains("transfer") -> DetectedTransactionType.TRANSFER
+            else -> DetectedTransactionType.UNKNOWN
         }
     }
 
@@ -192,7 +269,7 @@ object SmsTransactionParser {
         return null
     }
 
-    private fun extractRefNumber(text: String): String {
+    fun extractRefNumber(text: String): String {
         for (pattern in REF_PATTERNS) {
             val matcher = pattern.matcher(text)
             if (matcher.find()) {
@@ -208,16 +285,21 @@ object SmsTransactionParser {
             val matcher = pattern.matcher(text)
             if (matcher.find()) {
                 val match = matcher.group(1)?.trim()
-                if (!match.isNullOrEmpty() && !match.equals("rs", ignoreCase = true) && !match.equals("inr", ignoreCase = true)) {
-                    // Clean up punctuation
-                    return match.trimEnd('.', ',', ':', ';')
+                if (!match.isNullOrEmpty() &&
+                    !match.equals("rs", ignoreCase = true) &&
+                    !match.equals("inr", ignoreCase = true) &&
+                    !match.equals("upi", ignoreCase = true) &&
+                    !match.equals("vpa", ignoreCase = true)
+                ) {
+                    // Clean up trailing punctuation
+                    return match.trimEnd('.', ',', ':', ';', '-')
                 }
             }
         }
         return null
     }
 
-    private fun sha256(input: String): String {
+    fun sha256(input: String): String {
         val bytes = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
         return bytes.joinToString("") { "%02x".format(it) }
     }

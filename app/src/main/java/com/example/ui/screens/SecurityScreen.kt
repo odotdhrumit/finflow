@@ -10,6 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.biometric.BiometricManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -24,8 +26,17 @@ fun SecurityScreen(
     viewModel: FinanceViewModel,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val appSettings by viewModel.appSettings.collectAsState()
     var showSetPinDialog by remember { mutableStateOf(false) }
+    var biometricErrorDialog by remember { mutableStateOf<String?>(null) }
+
+    val biometricManager = remember(context) { BiometricManager.from(context) }
+    val canDeviceUseBiometric = remember(biometricManager) {
+        biometricManager.canAuthenticate(
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
+        ) == BiometricManager.BIOMETRIC_SUCCESS
+    }
 
     Scaffold(
         topBar = {
@@ -105,7 +116,11 @@ fun SecurityScreen(
                                 Switch(
                                     checked = appSettings?.biometricEnabled == true,
                                     onCheckedChange = { bio ->
-                                        viewModel.updateAppLock(enabled = true, biometric = bio)
+                                        if (bio && !canDeviceUseBiometric) {
+                                            biometricErrorDialog = "No biometric hardware or enrolled fingerprint/face found. Please enroll biometric security in your Android Device Settings first."
+                                        } else {
+                                            viewModel.updateAppLock(enabled = true, biometric = bio)
+                                        }
                                     }
                                 )
                             }
@@ -200,6 +215,19 @@ fun SecurityScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showSetPinDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    biometricErrorDialog?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { biometricErrorDialog = null },
+            title = { Text("Biometrics Unavailable", fontWeight = FontWeight.Bold) },
+            text = { Text(msg) },
+            confirmButton = {
+                Button(onClick = { biometricErrorDialog = null }) {
+                    Text("OK")
+                }
             }
         )
     }

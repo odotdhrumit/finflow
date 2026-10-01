@@ -8,10 +8,15 @@ import com.example.util.DateUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import com.example.parser.DetectedTransactionType
 import java.util.Calendar
 
 class FinanceRepository(private val dao: FinanceDao) {
+
+    private val transactionProcessingMutex = Mutex()
 
     // --- Accounts ---
     val allAccounts: Flow<List<Account>> = dao.getAllAccounts()
@@ -298,76 +303,186 @@ class FinanceRepository(private val dao: FinanceDao) {
     val pendingDetectedMessages: Flow<List<DetectedMessage>> = dao.getPendingDetectedMessages()
 
     suspend fun processParsedTransaction(parsed: ParsedTransaction, sourceType: DetectedSourceType): Boolean = withContext(Dispatchers.IO) {
-        // Duplicate check
-        val existingDetected = dao.findDetectedByFingerprint(parsed.fingerprint)
-        if (existingDetected != null) {
-            return@withContext false
-        }
-        val existingTx = dao.findTransactionByFingerprint(parsed.fingerprint)
-        if (existingTx != null) {
-            return@withContext false
-        }
+        transactionProcessingMutex.withLock {
+            // 1. DEDUPLICATION & MERGING IN CONFIRMED/EXISTING TRANSACTIONS
+            var matchedTx: Transaction? = null
 
-        val settings = dao.getSettingsDirect() ?: AppSettings()
+            // Priority 1: Bank/UPI transaction or reference ID / UTR
+            if (parsed.referenceNumber.isNotBlank()) {
+                matchedTx = dao.findTransactionByReference(parsed.referenceNumber)
+            }
 
-        // Check if account matches by last 4 digits
-        val matchingAccount = parsed.accountLast4?.let { dao.findAccountByLast4(it) }
-            ?: dao.getActiveAccountsDirect().firstOrNull()
+            // Priority 2: Stable fingerprint
+            if (matchedTx == null && parsed.fingerprint.isNotBlank()) {
+                matchedTx = dao.findTransactionByFingerprint(parsed.fingerprint)
+            }
 
-        if (settings.autoConfirmTrustedSms && matchingAccount != null && parsed.confidenceScore >= 0.7f) {
-            // Auto confirm!
-            val tx = Transaction(
-                amount = parsed.amount,
-                type = parsed.transactionType,
-                categoryName = parsed.suggestedCategory,
-                accountId = matchingAccount.id,
-                accountName = matchingAccount.name,
-                dateMillis = parsed.timestamp,
-                timeFormatted = DateUtils.formatTime(parsed.timestamp),
-                merchant = parsed.merchant,
-                notes = "Auto-detected from ${sourceType.name} (${parsed.bank})",
-                source = if (sourceType == DetectedSourceType.SMS) TransactionSource.SMS else TransactionSource.NOTIFICATION,
-                confirmationStatus = ConfirmationStatus.CONFIRMED,
-                fingerprint = parsed.fingerprint,
-                referenceNumber = parsed.referenceNumber
-            )
-            val txId = insertTransaction(tx)
+            // Priority 3: Normalized amount + type + close timestamp (30 min)
+            if (matchedTx == null) {
+                val candidates = dao.findMatchingTransactions(
+                    type = parsed.transactionType,
+                    amount = parsed.amount,
+                    timestamp = parsed.timestamp,
+                    windowMillis = 1800000L // 30 minutes
+                )
+                matchedTx = candidates.firstOrNull { cand ->
+                    val accMatch = parsed.accountLast4 == null || cand.accountName.contains(parsed.accountLast4)
+                    val refMatch = cand.referenceNumber.isEmpty() || parsed.referenceNumber.isEmpty() || cand.referenceNumber == parsed.referenceNumber
+                    accMatch && refMatch
+                }
+            }
 
-            val detectedMsg = DetectedMessage(
-                sourceType = sourceType,
-                senderOrApp = parsed.bank,
-                rawText = parsed.rawText,
-                detectedAtMillis = parsed.timestamp,
-                parsedAmount = parsed.amount,
-                parsedType = parsed.transactionType,
-                parsedBank = parsed.bank,
-                parsedAccountLast4 = parsed.accountLast4,
-                parsedMerchant = parsed.merchant,
-                suggestedCategory = parsed.suggestedCategory,
-                status = DetectedStatus.CONFIRMED,
-                duplicateFingerprint = parsed.fingerprint,
-                linkedTransactionId = txId
-            )
-            dao.insertDetectedMessage(detectedMsg)
-            return@withContext true
-        } else {
-            // Send to review queue
-            val detectedMsg = DetectedMessage(
-                sourceType = sourceType,
-                senderOrApp = parsed.bank,
-                rawText = parsed.rawText,
-                detectedAtMillis = parsed.timestamp,
-                parsedAmount = parsed.amount,
-                parsedType = parsed.transactionType,
-                parsedBank = parsed.bank,
-                parsedAccountLast4 = parsed.accountLast4,
-                parsedMerchant = parsed.merchant,
-                suggestedCategory = parsed.suggestedCategory,
-                status = DetectedStatus.PENDING_REVIEW,
-                duplicateFingerprint = parsed.fingerprint
-            )
-            dao.insertDetectedMessage(detectedMsg)
-            return@withContext true
+            if (matchedTx != null) {
+                // Duplicate transaction found! Merge metadata, do NOT create a second transaction
+                val isSms = sourceType == DetectedSourceType.SMS
+                val currentSource = matchedTx.source
+                val newSource = when {
+                    (currentSource == TransactionSource.SMS && !isSms) || (currentSource == TransactionSource.NOTIFICATION && isSms) ->
+                        TransactionSource.SMS_AND_NOTIFICATION
+                    currentSource == TransactionSource.SMS_AND_NOTIFICATION ->
+                        TransactionSource.SMS_AND_NOTIFICATION
+                    else -> currentSource
+                }
+
+                val updatedRef = if (matchedTx.referenceNumber.isBlank() && parsed.referenceNumber.isNotBlank()) {
+                    parsed.referenceNumber
+                } else matchedTx.referenceNumber
+
+                val updatedMerchant = if ((matchedTx.merchant.isBlank() || matchedTx.merchant == "Bank") && parsed.merchant.isNotBlank()) {
+                    parsed.merchant
+                } else matchedTx.merchant
+
+                val mergedTx = matchedTx.copy(
+                    source = newSource,
+                    referenceNumber = updatedRef,
+                    merchant = updatedMerchant
+                )
+                dao.updateTransaction(mergedTx)
+
+                // Insert or update detected message record linked to the merged transaction
+                val existingDetected = dao.findDetectedByFingerprint(parsed.fingerprint)
+                if (existingDetected == null) {
+                    val detectedMsg = DetectedMessage(
+                        sourceType = sourceType,
+                        senderOrApp = parsed.bank,
+                        rawText = parsed.rawText,
+                        detectedAtMillis = parsed.timestamp,
+                        parsedAmount = parsed.amount,
+                        parsedType = parsed.transactionType,
+                        parsedBank = parsed.bank,
+                        parsedAccountLast4 = parsed.accountLast4,
+                        parsedMerchant = parsed.merchant,
+                        suggestedCategory = parsed.suggestedCategory,
+                        status = DetectedStatus.CONFIRMED,
+                        duplicateFingerprint = parsed.fingerprint,
+                        linkedTransactionId = matchedTx.id
+                    )
+                    dao.insertDetectedMessage(detectedMsg)
+                }
+                return@withLock true
+            }
+
+            // 2. DEDUPLICATION IN PENDING REVIEW QUEUE
+            var matchedPending: DetectedMessage? = null
+            if (parsed.referenceNumber.isNotBlank()) {
+                matchedPending = dao.findDetectedByReference(parsed.referenceNumber)
+            }
+            if (matchedPending == null && parsed.fingerprint.isNotBlank()) {
+                matchedPending = dao.findDetectedByFingerprint(parsed.fingerprint)
+            }
+            if (matchedPending == null) {
+                val pendingCandidates = dao.findMatchingPendingDetected(
+                    amount = parsed.amount,
+                    timestamp = parsed.timestamp,
+                    windowMillis = 1800000L
+                )
+                matchedPending = pendingCandidates.firstOrNull { cand ->
+                    val typeMatches = cand.parsedType == parsed.transactionType
+                    val bankMatches = cand.parsedBank == parsed.bank || cand.parsedBank == "Bank" || parsed.bank == "Bank"
+                    typeMatches && bankMatches
+                }
+            }
+
+            if (matchedPending != null) {
+                // Merge into existing pending message without creating duplicate
+                val updatedRaw = if (!matchedPending.rawText.contains(parsed.rawText)) {
+                    "${matchedPending.rawText}\n---\n${parsed.rawText}"
+                } else matchedPending.rawText
+
+                val updatedPending = matchedPending.copy(
+                    rawText = updatedRaw,
+                    parsedMerchant = if (matchedPending.parsedMerchant.isNullOrBlank() || matchedPending.parsedMerchant == "Bank") parsed.merchant else matchedPending.parsedMerchant,
+                    parsedAccountLast4 = matchedPending.parsedAccountLast4 ?: parsed.accountLast4
+                )
+                dao.updateDetectedMessage(updatedPending)
+                return@withLock true
+            }
+
+            // 3. NEW TRANSACTION: Check auto-confirm vs review queue
+            val settings = dao.getSettingsDirect() ?: AppSettings()
+            val matchingAccount = parsed.accountLast4?.let { dao.findAccountByLast4(it) }
+                ?: dao.getActiveAccountsDirect().firstOrNull()
+
+            val canAutoConfirm = settings.autoConfirmTrustedSms &&
+                    !parsed.requiresReview &&
+                    matchingAccount != null &&
+                    parsed.confidenceScore >= 0.7f &&
+                    parsed.detectedType != DetectedTransactionType.UNKNOWN
+
+            if (canAutoConfirm && matchingAccount != null) {
+                val tx = Transaction(
+                    amount = parsed.amount,
+                    type = parsed.transactionType,
+                    categoryName = parsed.suggestedCategory,
+                    accountId = matchingAccount.id,
+                    accountName = matchingAccount.name,
+                    dateMillis = parsed.timestamp,
+                    timeFormatted = DateUtils.formatTime(parsed.timestamp),
+                    merchant = parsed.merchant,
+                    notes = "Auto-detected from ${sourceType.name} (${parsed.bank})",
+                    source = if (sourceType == DetectedSourceType.SMS) TransactionSource.SMS else TransactionSource.NOTIFICATION,
+                    confirmationStatus = ConfirmationStatus.CONFIRMED,
+                    fingerprint = parsed.fingerprint,
+                    referenceNumber = parsed.referenceNumber
+                )
+                val txId = insertTransaction(tx)
+
+                val detectedMsg = DetectedMessage(
+                    sourceType = sourceType,
+                    senderOrApp = parsed.bank,
+                    rawText = parsed.rawText,
+                    detectedAtMillis = parsed.timestamp,
+                    parsedAmount = parsed.amount,
+                    parsedType = parsed.transactionType,
+                    parsedBank = parsed.bank,
+                    parsedAccountLast4 = parsed.accountLast4,
+                    parsedMerchant = parsed.merchant,
+                    suggestedCategory = parsed.suggestedCategory,
+                    status = DetectedStatus.CONFIRMED,
+                    duplicateFingerprint = parsed.fingerprint,
+                    linkedTransactionId = txId
+                )
+                dao.insertDetectedMessage(detectedMsg)
+                return@withLock true
+            } else {
+                // Send to Review Queue
+                val detectedMsg = DetectedMessage(
+                    sourceType = sourceType,
+                    senderOrApp = parsed.bank,
+                    rawText = parsed.rawText,
+                    detectedAtMillis = parsed.timestamp,
+                    parsedAmount = parsed.amount,
+                    parsedType = parsed.transactionType,
+                    parsedBank = parsed.bank,
+                    parsedAccountLast4 = parsed.accountLast4,
+                    parsedMerchant = parsed.merchant,
+                    suggestedCategory = parsed.suggestedCategory,
+                    status = DetectedStatus.PENDING_REVIEW,
+                    duplicateFingerprint = parsed.fingerprint
+                )
+                dao.insertDetectedMessage(detectedMsg)
+                return@withLock true
+            }
         }
     }
 

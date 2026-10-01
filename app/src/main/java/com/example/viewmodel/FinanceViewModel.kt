@@ -16,6 +16,7 @@ import com.example.util.ReminderScheduler
 import com.example.util.SecurityHelper
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.io.File
 
 data class DashboardSummary(
@@ -145,17 +146,31 @@ class FinanceViewModel(
         }
     }
 
-    fun unlockApp(pin: String): Boolean {
-        val settings = appSettings.value ?: return true
-        if (SecurityHelper.verifyPin(pin, settings.pinHash)) {
-            _isAppLocked.value = false
-            return true
+    fun lockApp() {
+        val settings = appSettings.value ?: runBlocking { repository.getSettingsDirect() }
+        if (settings.appLockEnabled && settings.pinHash.isNotEmpty()) {
+            _isAppLocked.value = true
         }
-        return false
     }
 
-    fun unlockAppBiometric() {
+    fun unlockApp(pin: String): Boolean {
+        val settings = appSettings.value ?: runBlocking { repository.getSettingsDirect() }
+        if (settings.appLockEnabled && settings.pinHash.isNotEmpty()) {
+            if (SecurityHelper.verifyPin(pin, settings.pinHash)) {
+                _isAppLocked.value = false
+                return true
+            }
+            return false
+        }
         _isAppLocked.value = false
+        return true
+    }
+
+    fun onBiometricAuthenticationSuccess() {
+        val settings = appSettings.value ?: runBlocking { repository.getSettingsDirect() }
+        if (settings.appLockEnabled && settings.biometricEnabled) {
+            _isAppLocked.value = false
+        }
     }
 
     // --- Transaction Actions ---

@@ -17,6 +17,7 @@ enum class TransactionSource {
     MANUAL,
     SMS,
     NOTIFICATION,
+    SMS_AND_NOTIFICATION,
     IMPORTED
 }
 
