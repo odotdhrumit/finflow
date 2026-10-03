@@ -1,11 +1,8 @@
 package com.example.ui.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -15,15 +12,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.entity.Account
-import com.example.data.entity.Category
 import com.example.data.entity.TransactionType
 import com.example.ui.theme.*
 import com.example.viewmodel.FinanceViewModel
@@ -83,7 +76,10 @@ fun QuickAddSheet(
         ) {
             Text(
                 text = "Add Transaction",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -113,173 +109,137 @@ fun QuickAddSheet(
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = when (type) {
-                                TransactionType.EXPENSE -> ExpenseRed
-                                TransactionType.INCOME -> IncomeGreen
-                                TransactionType.TRANSFER -> TransferPurple
-                                TransactionType.INVESTMENT -> InvestmentIndigo
-                                TransactionType.LOAN_PAYMENT -> LoanAmber
-                                TransactionType.SAVINGS -> SavingsTeal
-                            },
-                            selectedLabelColor = Color.White
-                        )
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = androidx.compose.ui.graphics.Color.White
+                        ),
+                        shape = RoundedCornerShape(10.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Amount Input with large Rupee symbol
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "₹",
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = { input ->
-                        if (input.isEmpty() || input.matches(Regex("""^\d*(\.\d{0,2})?$"""))) {
-                            amountText = input
+            // Amount Input
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = { amountText = it },
+                label = { Text("Amount (₹) *") },
+                placeholder = { Text("0.00") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("transaction_amount_input"),
+                shape = RoundedCornerShape(10.dp)
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Merchant / Beneficiary
+            OutlinedTextField(
+                value = merchantText,
+                onValueChange = { merchantText = it },
+                label = {
+                    Text(
+                        when (selectedType) {
+                            TransactionType.INCOME -> "Received From / Employer"
+                            TransactionType.TRANSFER -> "Transfer Note"
+                            else -> "Merchant / Person"
                         }
-                    },
-                    placeholder = { Text("0.00", fontSize = 28.sp) },
-                    textStyle = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier
-                        .width(220.dp)
-                        .testTag("transaction_amount_input"),
-                    shape = RoundedCornerShape(14.dp)
-                )
-            }
+                    )
+                },
+                placeholder = { Text("e.g. Amazon, Swiggy, Salary") },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("transaction_merchant_input"),
+                shape = RoundedCornerShape(10.dp)
+            )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Account Selector
-            if (accounts.isEmpty()) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+            if (accounts.isNotEmpty()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "Please add at least one account from More > Accounts first.",
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(12.dp)
+                        text = if (selectedType == TransactionType.TRANSFER) "From Account:" else "Account:",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
-                }
-            } else {
-                Text(
-                    text = if (selectedType == TransactionType.TRANSFER) "From Account" else "Account",
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.align(Alignment.Start)
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    accounts.forEach { acc ->
-                        val isSelected = selectedAccountId == acc.id
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { selectedAccountId = acc.id },
-                            label = { Text("${acc.name} (${acc.bankName})") }
-                        )
-                    }
-                }
-
-                // If Transfer, show To Account
-                if (selectedType == TransactionType.TRANSFER) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "To Account",
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.align(Alignment.Start)
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        accounts.filter { it.id != selectedAccountId }.forEach { acc ->
-                            val isSelected = selectedToAccountId == acc.id
+                        accounts.forEach { acc ->
                             FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedToAccountId = acc.id },
-                                label = { Text("${acc.name} (${acc.bankName})") }
+                                selected = selectedAccountId == acc.id,
+                                onClick = { selectedAccountId = acc.id },
+                                label = { Text(acc.name, fontSize = 12.sp) },
+                                shape = RoundedCornerShape(10.dp)
                             )
                         }
                     }
                 }
             }
 
-            // Category Selector (for non-transfer)
-            if (selectedType != TransactionType.TRANSFER) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Category",
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.align(Alignment.Start)
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-
-                val filteredCategories = categories.filter {
-                    if (selectedType == TransactionType.INCOME) it.isIncome else !it.isIncome
-                }
-                val catsToShow = if (filteredCategories.isNotEmpty()) filteredCategories else categories
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    catsToShow.forEach { cat ->
-                        val isSelected = selectedCategory.equals(cat.name, ignoreCase = true)
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { selectedCategory = cat.name },
-                            label = { Text(cat.name) },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = getCategoryIcon(cat.name),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        )
+            // Destination Account (for Transfer)
+            if (selectedType == TransactionType.TRANSFER && accounts.size > 1) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "To Account:",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        accounts.filter { it.id != selectedAccountId }.forEach { acc ->
+                            FilterChip(
+                                selected = selectedToAccountId == acc.id,
+                                onClick = { selectedToAccountId = acc.id },
+                                label = { Text(acc.name, fontSize = 12.sp) },
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Merchant / Description
-            OutlinedTextField(
-                value = merchantText,
-                onValueChange = { merchantText = it },
-                label = { Text(if (selectedType == TransactionType.INCOME) "Payer / Source" else "Merchant / Payee") },
-                placeholder = { Text("e.g. Swiggy, Amazon, Salary") },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("transaction_merchant_input"),
-                shape = RoundedCornerShape(12.dp)
-            )
+            // Category Chips (Horizontal Scrollable)
+            if (selectedType != TransactionType.TRANSFER) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Category:",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        categories.forEach { cat ->
+                            FilterChip(
+                                selected = selectedCategory == cat.name,
+                                onClick = { selectedCategory = cat.name },
+                                label = { Text(cat.name, fontSize = 12.sp) },
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+                    }
+                }
+            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Notes
             OutlinedTextField(
@@ -291,10 +251,10 @@ fun QuickAddSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("transaction_note_input"),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(10.dp)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Submit Button
             val isValid = amountText.toDoubleOrNull() != null &&
@@ -320,18 +280,18 @@ fun QuickAddSheet(
                 enabled = isValid,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .height(48.dp)
                     .testTag("save_transaction_button"),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
             ) {
-                Icon(imageVector = Icons.Default.Check, contentDescription = null)
+                Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Save Transaction",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
             }
         }

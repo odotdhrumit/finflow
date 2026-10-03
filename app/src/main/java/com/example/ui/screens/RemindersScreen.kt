@@ -66,7 +66,7 @@ fun RemindersScreen(
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "Reminders trigger Android system alarms in the background even when FinFlow is closed.",
+                    text = "Reminders trigger Android system alarms in the background even when ORYVO is closed.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -76,7 +76,9 @@ fun RemindersScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     ) {
                         Column(
                             modifier = Modifier
@@ -95,10 +97,11 @@ fun RemindersScreen(
                 items(reminders, key = { it.id }) { reminder ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = if (reminder.isCompleted) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surface
                         ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                     ) {
                         Row(
@@ -131,15 +134,9 @@ fun RemindersScreen(
                                     )
                                     Text(" • ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(
-                                        text = "${reminder.reminderAdvanceDays}d advance",
+                                        text = if (reminder.frequency == ReminderFrequency.MONTHLY) "Repeats Monthly" else "One-Time",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Text(" • ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(
-                                        text = reminder.frequency.name.replace("_", " "),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 if (reminder.notes.isNotBlank()) {
@@ -156,13 +153,13 @@ fun RemindersScreen(
                                     text = CurrencyFormatter.format(reminder.amount),
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = LoanAmber
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 )
                             }
 
                             IconButton(onClick = { viewModel.deleteReminder(reminder) }) {
-                                Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Delete", tint = ExpenseRed)
+                                Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
@@ -176,13 +173,18 @@ fun RemindersScreen(
         var title by remember { mutableStateOf("") }
         var amountText by remember { mutableStateOf("") }
         var frequency by remember { mutableStateOf(ReminderFrequency.MONTHLY) }
-        var advanceDays by remember { mutableStateOf(1) }
         var dueDaysFromNow by remember { mutableStateOf("3") }
         var notes by remember { mutableStateOf("") }
 
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
-            title = { Text("Create Payment Reminder", fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    text = "Create Payment Reminder",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
@@ -210,24 +212,13 @@ fun RemindersScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Text("Alert Notice:", style = MaterialTheme.typography.labelSmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(0 to "Same day", 1 to "1d before", 3 to "3d before", 7 to "7d before").forEach { (days, label) ->
-                            FilterChip(
-                                selected = advanceDays == days,
-                                onClick = { advanceDays = days },
-                                label = { Text(label, fontSize = 10.sp) }
-                            )
-                        }
-                    }
-
-                    Text("Frequency:", style = MaterialTheme.typography.labelSmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ReminderFrequency.values().forEach { freq ->
+                    Text("Reminder Type:", style = MaterialTheme.typography.labelSmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(ReminderFrequency.MONTHLY to "Monthly Recurring", ReminderFrequency.ONE_TIME to "One-Time").forEach { (freq, label) ->
                             FilterChip(
                                 selected = frequency == freq,
                                 onClick = { frequency = freq },
-                                label = { Text(freq.name.replace("_", " "), fontSize = 10.sp) }
+                                label = { Text(label, fontSize = 11.sp) }
                             )
                         }
                     }
@@ -254,12 +245,13 @@ fun RemindersScreen(
                                 amount = amt,
                                 dueDateMillis = targetCal.timeInMillis,
                                 frequency = frequency,
-                                advanceDays = advanceDays,
+                                advanceDays = 0,
                                 notes = notes.trim()
                             )
                             showAddDialog = false
                         }
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text("Set Reminder")
                 }

@@ -1,12 +1,14 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -20,7 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.entity.Account
 import com.example.data.entity.Investment
 import com.example.data.entity.InvestmentType
 import com.example.data.entity.Loan
@@ -35,10 +36,11 @@ import java.util.Calendar
 @Composable
 fun FinanceScreen(
     viewModel: FinanceViewModel,
+    initialTab: Int = 0,
     modifier: Modifier = Modifier
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Savings", "Investments", "Loans")
+    var selectedTab by remember(initialTab) { mutableStateOf(initialTab) }
+    val tabs = listOf("Savings", "Investments", "Loans & EMI")
 
     Column(
         modifier = modifier
@@ -47,13 +49,17 @@ fun FinanceScreen(
     ) {
         Text(
             text = "Finance",
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            ),
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp)
         )
 
-        PrimaryTabRow(
+        TabRow(
             selectedTabIndex = selectedTab,
             containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary,
             modifier = Modifier.fillMaxWidth()
         ) {
             tabs.forEachIndexed { index, title ->
@@ -63,7 +69,8 @@ fun FinanceScreen(
                     text = {
                         Text(
                             text = title,
-                            fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium
+                            fontWeight = if (selectedTab == index) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (selectedTab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 )
@@ -86,6 +93,7 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
 
     var showAddGoalDialog by remember { mutableStateOf(false) }
     var selectedGoalForDeposit by remember { mutableStateOf<SavingsGoal?>(null) }
+    var editingGoal by remember { mutableStateOf<SavingsGoal?>(null) }
     var isDepositMode by remember { mutableStateOf(true) }
 
     val totalSaved = savingsGoals.sumOf { it.currentAmount }
@@ -93,30 +101,40 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Summary Header Card
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(18.dp),
+                        .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Total Saved", style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            "TOTAL SAVED",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 0.6.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             CurrencyFormatter.format(totalSaved),
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = SavingsTeal
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
                             )
                         )
                         if (totalTarget > 0) {
@@ -130,12 +148,13 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
 
                     Button(
                         onClick = { showAddGoalDialog = true },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SavingsTeal)
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("New Goal")
+                        Text("New Goal", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -145,24 +164,26 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
+                            .padding(28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(
                             imageVector = Icons.Default.Savings,
                             contentDescription = null,
-                            tint = SavingsTeal,
-                            modifier = Modifier.size(48.dp)
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(44.dp)
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("No savings goals yet", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                        Text("Set a target for a new gadget, vehicle, or vacation!", style = MaterialTheme.typography.bodySmall)
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text("No savings goals", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Create your first savings goal to track progress.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -170,16 +191,14 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
             items(savingsGoals, key = { it.id }) { goal ->
                 val progress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat().coerceIn(0f, 1f) else 0f
                 val percent = (progress * 100).toInt()
-
-                // Calculate suggested monthly savings
                 val remainingAmount = (goal.targetAmount - goal.currentAmount).coerceAtLeast(0.0)
                 val remainingMonths = DateUtils.getMonthsDifference(System.currentTimeMillis(), goal.targetDateMillis)
-                val suggestedMonthly = remainingAmount / remainingMonths
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -188,67 +207,85 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Text(
+                                text = goal.name,
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                            )
+
+                            Row {
+                                IconButton(onClick = { editingGoal = goal }, modifier = Modifier.size(32.dp)) {
+                                    Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit Goal", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                }
+                                IconButton(onClick = { viewModel.deleteSavingsGoal(goal) }, modifier = Modifier.size(32.dp)) {
+                                    Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
                             Column {
                                 Text(
-                                    text = goal.name,
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                    text = "${CurrencyFormatter.format(goal.currentAmount)} saved",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
                                 )
                                 Text(
-                                    text = "Target Date: ${DateUtils.formatDate(goal.targetDateMillis)}",
+                                    text = "of ${CurrencyFormatter.format(goal.targetAmount)} target",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-
-                            IconButton(onClick = { viewModel.deleteSavingsGoal(goal) }) {
-                                Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                            Text(
+                                text = "$percent%",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (percent >= 100) PositiveGreen else MaterialTheme.colorScheme.primary
+                                )
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        // Progress bar
+                        // Clean Navy Progress Bar
                         LinearProgressIndicator(
                             progress = { progress },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(8.dp)
-                                .clip(RoundedCornerShape(4.dp)),
-                            color = SavingsTeal,
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            color = MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "${CurrencyFormatter.format(goal.currentAmount)} of ${CurrencyFormatter.format(goal.targetAmount)}",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                                text = "${CurrencyFormatter.format(remainingAmount)} remaining",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Text(
-                                text = "$percent%",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = SavingsTeal)
-                            )
-                        }
-
-                        if (remainingAmount > 0) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = SavingsTeal.copy(alpha = 0.1f)
-                            ) {
+                            if (remainingAmount > 0) {
                                 Text(
-                                    text = "Suggested monthly saving: ${CurrencyFormatter.format(suggestedMonthly)} / mo (${remainingMonths} mos left)",
-                                    style = MaterialTheme.typography.labelSmall.copy(color = SavingsTeal),
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    text = "${remainingMonths} mos left",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         // Action Buttons: Add Money, Withdraw
                         Row(
@@ -261,7 +298,8 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
                                     selectedGoalForDeposit = goal
                                     isDepositMode = false
                                 },
-                                shape = RoundedCornerShape(10.dp)
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {
                                 Text("Withdraw", fontSize = 12.sp)
                             }
@@ -272,9 +310,10 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
                                     isDepositMode = true
                                 },
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = SavingsTeal)
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                             ) {
-                                Text("Add Money", fontSize = 12.sp)
+                                Text("Add Money", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -292,15 +331,16 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
 
         AlertDialog(
             onDismissRequest = { showAddGoalDialog = false },
-            title = { Text("Create Savings Goal", fontWeight = FontWeight.Bold) },
+            title = { Text("Create Savings Goal", fontWeight = FontWeight.SemiBold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = goalName,
                         onValueChange = { goalName = it },
                         label = { Text("Goal Name") },
-                        placeholder = { Text("e.g. New Phone, Emergency Fund") },
+                        placeholder = { Text("e.g. Emergency Fund, Vacation") },
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -309,6 +349,7 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
                         label = { Text("Target Amount (₹)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -317,6 +358,7 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
                         label = { Text("Target Duration (Months)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -324,6 +366,7 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
                         onValueChange = { notesText = it },
                         label = { Text("Notes (Optional)") },
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -341,17 +384,85 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
                                 targetAmount = targetAmt,
                                 targetDateMillis = targetCal.timeInMillis,
                                 notes = notesText.trim(),
-                                colorHex = "#14B8A6"
+                                colorHex = "#17324D"
                             )
                             showAddGoalDialog = false
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text("Save Goal")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showAddGoalDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Edit Savings Goal Dialog
+    editingGoal?.let { goal ->
+        var editName by remember(goal) { mutableStateOf(goal.name) }
+        var editTargetText by remember(goal) { mutableStateOf(goal.targetAmount.toInt().toString()) }
+        var editNotes by remember(goal) { mutableStateOf(goal.notes) }
+
+        AlertDialog(
+            onDismissRequest = { editingGoal = null },
+            title = { Text("Edit Savings Goal", fontWeight = FontWeight.SemiBold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = editName,
+                        onValueChange = { editName = it },
+                        label = { Text("Goal Name") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = editTargetText,
+                        onValueChange = { editTargetText = it },
+                        label = { Text("Target Amount (₹)") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = editNotes,
+                        onValueChange = { editNotes = it },
+                        label = { Text("Notes (Optional)") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val newTarget = editTargetText.toDoubleOrNull() ?: goal.targetAmount
+                        if (editName.isNotBlank() && newTarget > 0) {
+                            viewModel.updateSavingsGoal(
+                                goal.copy(
+                                    name = editName.trim(),
+                                    targetAmount = newTarget,
+                                    notes = editNotes.trim()
+                                )
+                            )
+                            editingGoal = null
+                        }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("Save Changes")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingGoal = null }) {
                     Text("Cancel")
                 }
             }
@@ -365,7 +476,7 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
 
         AlertDialog(
             onDismissRequest = { selectedGoalForDeposit = null },
-            title = { Text(if (isDepositMode) "Add Money to ${goal.name}" else "Withdraw from ${goal.name}", fontWeight = FontWeight.Bold) },
+            title = { Text(if (isDepositMode) "Add Money to ${goal.name}" else "Withdraw from ${goal.name}", fontWeight = FontWeight.SemiBold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
@@ -374,6 +485,7 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
                         label = { Text("Amount (₹)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -391,7 +503,7 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
                                     selected = selectedAccId == acc.id,
                                     onClick = { selectedAccId = acc.id }
                                 )
-                                Text("${acc.name} (${CurrencyFormatter.format(acc.currentBalance)})")
+                                Text("${acc.name} (${CurrencyFormatter.format(acc.currentBalance)})", style = MaterialTheme.typography.bodyMedium)
                             }
                         }
                     }
@@ -409,7 +521,9 @@ fun SavingsTabContent(viewModel: FinanceViewModel) {
                             }
                             selectedGoalForDeposit = null
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text("Confirm")
                 }
@@ -439,46 +553,57 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Summary Card
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(18.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Current Value", style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                "PORTFOLIO VALUE",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = 0.6.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 CurrencyFormatter.format(totalCurrent),
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = InvestmentIndigo
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             )
                         }
 
                         Button(
                             onClick = { showAddDialog = true },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = InvestmentIndigo)
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Add")
+                            Text("Add", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
-                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), thickness = 1.dp)
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Row(
@@ -486,18 +611,20 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
-                            Text("Total Invested", style = MaterialTheme.typography.labelSmall)
-                            Text(CurrencyFormatter.format(totalInvested), fontWeight = FontWeight.Bold)
+                            Text("Total Invested", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(CurrencyFormatter.format(totalInvested), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
                         }
 
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("Total Profit / Loss", style = MaterialTheme.typography.labelSmall)
-                            val plColor = if (totalProfitLoss >= 0) IncomeGreen else ExpenseRed
+                            Text("Gain / Loss", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            val plColor = if (totalProfitLoss >= 0) PositiveGreen else NegativeRed
                             val sign = if (totalProfitLoss >= 0) "+" else ""
                             Text(
                                 "$sign${CurrencyFormatter.format(totalProfitLoss)} (${String.format("%.2f", plPercent)}%)",
-                                fontWeight = FontWeight.Bold,
-                                color = plColor
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = plColor
+                                )
                             )
                         }
                     }
@@ -509,24 +636,26 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
+                            .padding(28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(
                             imageVector = Icons.Default.TrendingUp,
                             contentDescription = null,
-                            tint = InvestmentIndigo,
-                            modifier = Modifier.size(48.dp)
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(44.dp)
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("No investments added yet", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                        Text("Track Mutual Funds, Stocks, Gold, FDs, RDs with profit/loss", style = MaterialTheme.typography.bodySmall)
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text("No investments", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Add your investments to track your portfolio.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -534,12 +663,13 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
             items(investments, key = { it.id }) { inv ->
                 val pl = inv.currentValue - inv.investedAmount
                 val plPct = if (inv.investedAmount > 0) ((pl / inv.investedAmount) * 100) else 0.0
-                val plColor = if (pl >= 0) IncomeGreen else ExpenseRed
+                val plColor = if (pl >= 0) PositiveGreen else NegativeRed
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -550,15 +680,15 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
                         ) {
                             Column {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(inv.name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                                    Text(inv.name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
-                                        color = InvestmentIndigo.copy(alpha = 0.15f)
+                                        color = MaterialTheme.colorScheme.surfaceVariant
                                     ) {
                                         Text(
                                             text = inv.type.name.replace("_", " "),
-                                            style = MaterialTheme.typography.labelSmall.copy(color = InvestmentIndigo),
+                                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                         )
                                     }
@@ -569,11 +699,11 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
                             }
 
                             Row {
-                                IconButton(onClick = { editingInvestment = inv }) {
-                                    Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                IconButton(onClick = { editingInvestment = inv }, modifier = Modifier.size(32.dp)) {
+                                    Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                                 }
-                                IconButton(onClick = { viewModel.deleteInvestment(inv) }) {
-                                    Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Delete", tint = ExpenseRed)
+                                IconButton(onClick = { viewModel.deleteInvestment(inv) }, modifier = Modifier.size(32.dp)) {
+                                    Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Delete", tint = NegativeRed, modifier = Modifier.size(16.dp))
                                 }
                             }
                         }
@@ -585,20 +715,22 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
-                                Text("Invested", style = MaterialTheme.typography.labelSmall)
-                                Text(CurrencyFormatter.format(inv.investedAmount), fontWeight = FontWeight.Bold)
+                                Text("Total Invested", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(CurrencyFormatter.format(inv.investedAmount), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Current Value", style = MaterialTheme.typography.labelSmall)
-                                Text(CurrencyFormatter.format(inv.currentValue), fontWeight = FontWeight.Bold)
+                                Text("Current Value", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(CurrencyFormatter.format(inv.currentValue), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("P/L", style = MaterialTheme.typography.labelSmall)
+                                Text("Gain / Loss", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 val sign = if (pl >= 0) "+" else ""
                                 Text(
                                     "$sign${CurrencyFormatter.format(pl)} (${String.format("%.1f", plPct)}%)",
-                                    fontWeight = FontWeight.Bold,
-                                    color = plColor
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = plColor
+                                    )
                                 )
                             }
                         }
@@ -619,22 +751,22 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
 
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
-            title = { Text("Add Investment", fontWeight = FontWeight.Bold) },
+            title = { Text("Add Investment", fontWeight = FontWeight.SemiBold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
                         label = { Text("Investment Name") },
-                        placeholder = { Text("e.g. Nifty 50 Index, Apple Inc, Gold") },
+                        placeholder = { Text("e.g. Nifty 50 Index, Apple, Gold ETF") },
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     // Type Chips
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         InvestmentType.values().take(3).forEach { t ->
@@ -646,8 +778,7 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
                         }
                     }
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         InvestmentType.values().drop(3).forEach { t ->
@@ -668,6 +799,7 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
                         label = { Text("Invested Amount (₹)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -677,6 +809,7 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
                         label = { Text("Current Value (₹)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -698,6 +831,7 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
                         onValueChange = { notes = it },
                         label = { Text("Notes (Optional)") },
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -711,7 +845,9 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
                             viewModel.addInvestment(name.trim(), type, invested, current, deductAccountId, notes.trim())
                             showAddDialog = false
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text("Save")
                 }
@@ -728,16 +864,17 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
 
         AlertDialog(
             onDismissRequest = { editingInvestment = null },
-            title = { Text("Update Value for ${inv.name}", fontWeight = FontWeight.Bold) },
+            title = { Text("Update Value for ${inv.name}", fontWeight = FontWeight.SemiBold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Invested: ${CurrencyFormatter.format(inv.investedAmount)}")
+                    Text("Invested: ${CurrencyFormatter.format(inv.investedAmount)}", style = MaterialTheme.typography.bodyMedium)
                     OutlinedTextField(
                         value = newCurrentValue,
                         onValueChange = { newCurrentValue = it },
                         label = { Text("Current Market Value (₹)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -750,7 +887,9 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
                             viewModel.updateInvestment(inv.copy(currentValue = parsed))
                             editingInvestment = null
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text("Update")
                 }
@@ -763,6 +902,7 @@ fun InvestmentsTabContent(viewModel: FinanceViewModel) {
 }
 
 // ---------------------- LOANS TAB ----------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoansTabContent(viewModel: FinanceViewModel) {
     val loans by viewModel.loans.collectAsState()
@@ -776,48 +916,59 @@ fun LoansTabContent(viewModel: FinanceViewModel) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Summary Card
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(18.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Total Outstanding Loan", style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                "TOTAL OUTSTANDING LOANS",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = 0.6.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 CurrencyFormatter.format(totalRemaining),
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = LoanAmber
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             )
                         }
 
                         Button(
                             onClick = { showAddLoanDialog = true },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = LoanAmber)
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Add Loan")
+                            Text("Add Loan", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
 
                     if (totalEmisDue > 0) {
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Monthly EMI commitments: ${CurrencyFormatter.format(totalEmisDue)}",
+                            "Monthly commitments: ${CurrencyFormatter.format(totalEmisDue)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -830,24 +981,26 @@ fun LoansTabContent(viewModel: FinanceViewModel) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
+                            .padding(28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(
-                            imageVector = Icons.Default.AccountBalance,
+                            imageVector = Icons.Default.CreditCard,
                             contentDescription = null,
-                            tint = LoanAmber,
-                            modifier = Modifier.size(48.dp)
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(44.dp)
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("No loans tracked yet", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                        Text("Track Personal, Home, Car, or Education loans and EMIs", style = MaterialTheme.typography.bodySmall)
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text("No active loans", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Add a loan to track EMIs and upcoming payment due dates.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -857,8 +1010,9 @@ fun LoansTabContent(viewModel: FinanceViewModel) {
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -869,52 +1023,82 @@ fun LoansTabContent(viewModel: FinanceViewModel) {
                         ) {
                             Column {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(loan.name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                                    Text(loan.name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
                                     if (loan.isClosed) {
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Surface(shape = RoundedCornerShape(6.dp), color = IncomeGreen.copy(alpha = 0.2f)) {
-                                            Text("CLOSED", style = MaterialTheme.typography.labelSmall.copy(color = IncomeGreen), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                        Surface(shape = RoundedCornerShape(6.dp), color = PositiveGreenLight) {
+                                            Text("CLOSED", style = MaterialTheme.typography.labelSmall.copy(color = PositiveGreen, fontWeight = FontWeight.SemiBold), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                                         }
                                     }
                                 }
                                 Text("Lender: ${loan.lender}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
 
-                            IconButton(onClick = { viewModel.deleteLoan(loan) }) {
-                                Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            IconButton(onClick = { viewModel.deleteLoan(loan) }, modifier = Modifier.size(32.dp)) {
+                                Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
-                                Text("Remaining", style = MaterialTheme.typography.labelSmall)
-                                Text(CurrencyFormatter.format(loan.remainingAmount), fontWeight = FontWeight.Bold, color = LoanAmber)
+                                Text("Outstanding", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(CurrencyFormatter.format(loan.remainingAmount), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary))
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("EMI Amount", style = MaterialTheme.typography.labelSmall)
-                                Text(CurrencyFormatter.format(loan.emiAmount), fontWeight = FontWeight.Bold)
+                                Text("EMI", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(CurrencyFormatter.format(loan.emiAmount), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("Next Due", style = MaterialTheme.typography.labelSmall)
-                                Text(DateUtils.formatDate(loan.nextDueDateMillis), fontWeight = FontWeight.SemiBold)
+                                Text("Next Due", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(DateUtils.formatFullDate(loan.nextDueDateMillis), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium))
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        if (!loan.isClosed) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            val dueStatus = DateUtils.getDueStatus(loan.nextDueDateMillis)
+                            val isDueTodayOrOverdue = dueStatus.contains("Today") || dueStatus.contains("Overdue")
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isDueTodayOrOverdue) NegativeRedLight else WarningAmberLight
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Alarm,
+                                        contentDescription = null,
+                                        tint = if (isDueTodayOrOverdue) NegativeRed else WarningAmber,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = dueStatus,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isDueTodayOrOverdue) NegativeRed else WarningAmber
+                                        )
+                                    )
+                                }
+                            }
+                        }
 
-                        // EMI Progress bar
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // EMI Progress bar (Deep Navy)
                         LinearProgressIndicator(
                             progress = { progress },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(6.dp)
                                 .clip(RoundedCornerShape(3.dp)),
-                            color = LoanAmber,
+                            color = MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
 
@@ -923,8 +1107,8 @@ fun LoansTabContent(viewModel: FinanceViewModel) {
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("${loan.paidEmis} of ${loan.totalEmis} EMIs paid", style = MaterialTheme.typography.labelSmall)
-                            Text("${loan.remainingEmis} remaining", style = MaterialTheme.typography.labelSmall)
+                            Text("${loan.paidEmis} of ${loan.totalEmis} EMIs paid", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${loan.remainingEmis} EMIs remaining", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium))
                         }
 
                         if (!loan.isClosed) {
@@ -932,12 +1116,12 @@ fun LoansTabContent(viewModel: FinanceViewModel) {
                             Button(
                                 onClick = { selectedLoanForPayment = loan },
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = LoanAmber)
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                             ) {
-                                Icon(imageVector = Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(imageVector = Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Mark EMI as Paid (${CurrencyFormatter.format(loan.emiAmount)})", fontWeight = FontWeight.Bold)
+                                Text("Mark EMI as Paid (${CurrencyFormatter.format(loan.emiAmount)})", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -955,104 +1139,364 @@ fun LoansTabContent(viewModel: FinanceViewModel) {
         var interestRateText by remember { mutableStateOf("10.5") }
         var emiAmountText by remember { mutableStateOf("") }
         var totalEmisText by remember { mutableStateOf("12") }
+        var dueDayText by remember { mutableStateOf("10") }
+        var enableReminder by remember { mutableStateOf(true) }
         var notes by remember { mutableStateOf("") }
+
+        var loanNameError by remember { mutableStateOf<String?>(null) }
+        var originalAmountError by remember { mutableStateOf<String?>(null) }
+        var remainingAmountError by remember { mutableStateOf<String?>(null) }
+        var emiAmountError by remember { mutableStateOf<String?>(null) }
+        var totalEmisError by remember { mutableStateOf<String?>(null) }
+        var interestRateError by remember { mutableStateOf<String?>(null) }
+        var dueDayError by remember { mutableStateOf<String?>(null) }
+
+        val parsedDueDay = (dueDayText.toIntOrNull() ?: 10).coerceIn(1, 31)
+
+        // Calculate upcoming 3 monthly EMI schedule
+        val (firstDueDateMillis, secondDueDateMillis, thirdDueDateMillis) = remember(parsedDueDay) {
+            val now = Calendar.getInstance()
+            val today = now.get(Calendar.DAY_OF_MONTH)
+
+            val cal1 = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 9)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                if (today <= parsedDueDay) {
+                    val maxThisMonth = getActualMaximum(Calendar.DAY_OF_MONTH)
+                    set(Calendar.DAY_OF_MONTH, parsedDueDay.coerceAtMost(maxThisMonth))
+                } else {
+                    add(Calendar.MONTH, 1)
+                    val maxNextMonth = getActualMaximum(Calendar.DAY_OF_MONTH)
+                    set(Calendar.DAY_OF_MONTH, parsedDueDay.coerceAtMost(maxNextMonth))
+                }
+            }
+
+            val cal2 = (cal1.clone() as Calendar).apply {
+                add(Calendar.MONTH, 1)
+                val maxMonth2 = getActualMaximum(Calendar.DAY_OF_MONTH)
+                set(Calendar.DAY_OF_MONTH, parsedDueDay.coerceAtMost(maxMonth2))
+            }
+
+            val cal3 = (cal2.clone() as Calendar).apply {
+                add(Calendar.MONTH, 1)
+                val maxMonth3 = getActualMaximum(Calendar.DAY_OF_MONTH)
+                set(Calendar.DAY_OF_MONTH, parsedDueDay.coerceAtMost(maxMonth3))
+            }
+
+            Triple(cal1.timeInMillis, cal2.timeInMillis, cal3.timeInMillis)
+        }
 
         AlertDialog(
             onDismissRequest = { showAddLoanDialog = false },
-            title = { Text("Add Loan", fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    text = "Add Loan",
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // 1. Loan Name
                     OutlinedTextField(
                         value = loanName,
-                        onValueChange = { loanName = it },
-                        label = { Text("Loan Name") },
-                        placeholder = { Text("e.g. Home Loan, Personal Loan") },
+                        onValueChange = {
+                            loanName = it
+                            if (it.isNotBlank()) loanNameError = null
+                        },
+                        label = { Text("Loan Name *") },
+                        placeholder = { Text("e.g. Home Loan, Car Loan") },
+                        isError = loanNameError != null,
+                        supportingText = loanNameError?.let { { Text(it, color = NegativeRed) } },
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // 2. Lender / Bank
                     OutlinedTextField(
                         value = lender,
                         onValueChange = { lender = it },
                         label = { Text("Lender / Bank") },
-                        placeholder = { Text("e.g. SBI, HDFC, Bajaj Finserv") },
+                        placeholder = { Text("e.g. SBI, HDFC, ICICI") },
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // 3 & 4. Original & Remaining Loan Amount
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = originalAmountText,
                             onValueChange = {
                                 originalAmountText = it
                                 if (remainingAmountText.isEmpty()) remainingAmountText = it
+                                if ((it.toDoubleOrNull() ?: 0.0) > 0) originalAmountError = null
                             },
-                            label = { Text("Original (₹)") },
+                            label = { Text("Original (₹) *") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            isError = originalAmountError != null,
+                            supportingText = originalAmountError?.let { { Text(it, color = NegativeRed) } },
                             singleLine = true,
+                            shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
                             value = remainingAmountText,
-                            onValueChange = { remainingAmountText = it },
-                            label = { Text("Remaining (₹)") },
+                            onValueChange = {
+                                remainingAmountText = it
+                                if ((it.toDoubleOrNull() ?: 0.0) >= 0) remainingAmountError = null
+                            },
+                            label = { Text("Remaining (₹) *") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            isError = remainingAmountError != null,
+                            supportingText = remainingAmountError?.let { { Text(it, color = NegativeRed) } },
                             singleLine = true,
+                            shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f)
                         )
                     }
+
+                    // 5 & 6. EMI Amount & Total EMIs
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = emiAmountText,
-                            onValueChange = { emiAmountText = it },
-                            label = { Text("EMI (₹)") },
+                            onValueChange = {
+                                emiAmountText = it
+                                if ((it.toDoubleOrNull() ?: 0.0) > 0) emiAmountError = null
+                            },
+                            label = { Text("EMI Amount (₹) *") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            isError = emiAmountError != null,
+                            supportingText = emiAmountError?.let { { Text(it, color = NegativeRed) } },
                             singleLine = true,
+                            shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
                             value = totalEmisText,
-                            onValueChange = { totalEmisText = it },
-                            label = { Text("Total EMIs") },
+                            onValueChange = {
+                                totalEmisText = it
+                                if ((it.toIntOrNull() ?: 0) > 0) totalEmisError = null
+                            },
+                            label = { Text("Total EMIs *") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            isError = totalEmisError != null,
+                            supportingText = totalEmisError?.let { { Text(it, color = NegativeRed) } },
                             singleLine = true,
+                            shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f)
                         )
                     }
+
+                    // 7. Interest Rate
                     OutlinedTextField(
                         value = interestRateText,
-                        onValueChange = { interestRateText = it },
+                        onValueChange = {
+                            interestRateText = it
+                            if ((it.toDoubleOrNull() ?: 0.0) >= 0) interestRateError = null
+                        },
                         label = { Text("Interest Rate (%)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        isError = interestRateError != null,
+                        supportingText = interestRateError?.let { { Text(it, color = NegativeRed) } },
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // 8. EMI Due Date (Day of Month)
+                    OutlinedTextField(
+                        value = dueDayText,
+                        onValueChange = {
+                            dueDayText = it
+                            val d = it.toIntOrNull()
+                            if (d != null && d in 1..31) {
+                                dueDayError = null
+                            } else if (it.isNotBlank()) {
+                                dueDayError = "Enter day between 1 and 31"
+                            }
+                        },
+                        label = { Text("EMI Due Date (Day of Month) *") },
+                        placeholder = { Text("e.g. 10 for the 10th of every month") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = dueDayError != null,
+                        supportingText = dueDayError?.let { { Text(it, color = NegativeRed) } },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // ORYVO Automatic Monthly Schedule Calculation
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.CalendarMonth,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Monthly EMI Schedule",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "ORYVO automatically calculates upcoming dues for day $parsedDueDay of each month:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "• Next: ${DateUtils.formatFullDate(firstDueDateMillis)}",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium)
+                            )
+                            Text(
+                                text = "• Following: ${DateUtils.formatFullDate(secondDueDateMillis)}",
+                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            )
+                            Text(
+                                text = "• Later: ${DateUtils.formatFullDate(thirdDueDateMillis)}",
+                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            )
+                        }
+                    }
+
+                    // 9. Single EMI Reminder Setting
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Monthly EMI Reminder",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                                )
+                                Text(
+                                    text = if (enableReminder) "Repeats automatically every month on day $parsedDueDay (9:00 AM)" else "No reminder scheduled",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = enableReminder,
+                                onCheckedChange = { enableReminder = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                        }
+                    }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        val original = originalAmountText.toDoubleOrNull() ?: 0.0
-                        val remaining = remainingAmountText.toDoubleOrNull() ?: original
-                        val emi = emiAmountText.toDoubleOrNull() ?: (remaining / (totalEmisText.toIntOrNull() ?: 12))
-                        val totalEmis = totalEmisText.toIntOrNull() ?: 12
-                        val interest = interestRateText.toDoubleOrNull() ?: 0.0
+                        var isValid = true
+                        if (loanName.isBlank()) {
+                            loanNameError = "Loan name is required"
+                            isValid = false
+                        } else {
+                            loanNameError = null
+                        }
 
-                        if (loanName.isNotBlank() && remaining > 0 && emi > 0) {
+                        val original = originalAmountText.toDoubleOrNull()
+                        if (original == null || original <= 0.0) {
+                            originalAmountError = "Enter amount > 0"
+                            isValid = false
+                        } else {
+                            originalAmountError = null
+                        }
+
+                        val remaining = remainingAmountText.toDoubleOrNull()
+                        if (remaining == null || remaining < 0.0) {
+                            remainingAmountError = "Cannot be negative"
+                            isValid = false
+                        } else {
+                            remainingAmountError = null
+                        }
+
+                        val emi = emiAmountText.toDoubleOrNull()
+                        if (emi == null || emi <= 0.0) {
+                            emiAmountError = "Enter EMI > 0"
+                            isValid = false
+                        } else {
+                            emiAmountError = null
+                        }
+
+                        val totalEmis = totalEmisText.toIntOrNull()
+                        if (totalEmis == null || totalEmis <= 0) {
+                            totalEmisError = "Enter EMIs > 0"
+                            isValid = false
+                        } else {
+                            totalEmisError = null
+                        }
+
+                        val interest = interestRateText.toDoubleOrNull()
+                        if (interest == null || interest < 0.0) {
+                            interestRateError = "Enter valid rate"
+                            isValid = false
+                        } else {
+                            interestRateError = null
+                        }
+
+                        val dueDay = dueDayText.toIntOrNull()
+                        if (dueDay == null || dueDay !in 1..31) {
+                            dueDayError = "Enter day (1–31)"
+                            isValid = false
+                        } else {
+                            dueDayError = null
+                        }
+
+                        if (isValid && original != null && remaining != null && emi != null && totalEmis != null && dueDay != null) {
                             viewModel.addLoan(
                                 name = loanName.trim(),
                                 lender = lender.trim().ifBlank { "Bank" },
                                 originalAmount = original,
                                 remainingAmount = remaining,
-                                interestRate = interest,
+                                interestRate = interest ?: 0.0,
                                 emiAmount = emi,
-                                dueDayOfMonth = 10,
+                                dueDayOfMonth = dueDay,
                                 totalEmis = totalEmis,
-                                notes = notes.trim()
+                                notes = notes.trim(),
+                                nextDueDateMillis = firstDueDateMillis,
+                                enableReminder = enableReminder
                             )
                             showAddLoanDialog = false
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("Save Loan")
+                    Text("Save Loan", fontWeight = FontWeight.SemiBold)
                 }
             },
             dismissButton = {
@@ -1067,12 +1511,12 @@ fun LoansTabContent(viewModel: FinanceViewModel) {
 
         AlertDialog(
             onDismissRequest = { selectedLoanForPayment = null },
-            title = { Text("Record EMI Payment", fontWeight = FontWeight.Bold) },
+            title = { Text("Record EMI Payment", fontWeight = FontWeight.SemiBold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Loan: ${loan.name} (${loan.lender})")
-                    Text("EMI Amount: ${CurrencyFormatter.format(loan.emiAmount)}", fontWeight = FontWeight.Bold, color = LoanAmber)
-                    Text("This will deduct ${CurrencyFormatter.format(loan.emiAmount)} from selected account, reduce remaining loan balance, and advance the EMI count.")
+                    Text("Loan: ${loan.name} (${loan.lender})", style = MaterialTheme.typography.bodyMedium)
+                    Text("EMI Amount: ${CurrencyFormatter.format(loan.emiAmount)}", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    Text("This will deduct ${CurrencyFormatter.format(loan.emiAmount)} from selected account, reduce remaining loan balance, and advance the next monthly due date.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                     if (accounts.isNotEmpty()) {
                         Text("Deduct from Account:", style = MaterialTheme.typography.labelSmall)
@@ -1085,7 +1529,7 @@ fun LoansTabContent(viewModel: FinanceViewModel) {
                                     selected = selectedAccId == acc.id,
                                     onClick = { selectedAccId = acc.id }
                                 )
-                                Text("${acc.name} (${CurrencyFormatter.format(acc.currentBalance)})")
+                                Text("${acc.name} (${CurrencyFormatter.format(acc.currentBalance)})", style = MaterialTheme.typography.bodyMedium)
                             }
                         }
                     }
@@ -1098,7 +1542,8 @@ fun LoansTabContent(viewModel: FinanceViewModel) {
                         viewModel.payLoanEmi(loan.id, loan.emiAmount, accId)
                         selectedLoanForPayment = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = LoanAmber)
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text("Confirm Payment")
                 }

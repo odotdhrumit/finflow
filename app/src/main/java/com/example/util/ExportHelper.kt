@@ -12,7 +12,7 @@ object ExportHelper {
     fun exportTransactionsToCsv(context: Context, transactions: List<Transaction>): File? {
         return try {
             val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
-            val file = File(exportDir, "finflow_transactions_${System.currentTimeMillis()}.csv")
+            val file = File(exportDir, "oryvo_transactions_${System.currentTimeMillis()}.csv")
 
             FileWriter(file).use { writer ->
                 // Header
@@ -52,7 +52,7 @@ object ExportHelper {
             )
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/csv"
-                putExtra(Intent.EXTRA_SUBJECT, "FinFlow Transactions Export")
+                putExtra(Intent.EXTRA_SUBJECT, "ORYVO Transactions Export")
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }

@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,13 +13,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.entity.ConfirmationStatus
 import com.example.data.entity.Transaction
 import com.example.data.entity.TransactionSource
 import com.example.data.entity.TransactionType
@@ -33,12 +32,12 @@ fun TransactionItemCard(
     modifier: Modifier = Modifier
 ) {
     val (typeColor, prefix) = when (transaction.type) {
-        TransactionType.INCOME -> Pair(IncomeGreen, "+")
-        TransactionType.EXPENSE -> Pair(ExpenseRed, "-")
-        TransactionType.TRANSFER -> Pair(TransferPurple, "⇄ ")
-        TransactionType.INVESTMENT -> Pair(InvestmentIndigo, "-")
-        TransactionType.LOAN_PAYMENT -> Pair(LoanAmber, "-")
-        TransactionType.SAVINGS -> Pair(SavingsTeal, "↓ ")
+        TransactionType.INCOME -> Pair(PositiveGreen, "+")
+        TransactionType.EXPENSE -> Pair(NegativeRed, "-")
+        TransactionType.TRANSFER -> Pair(MaterialTheme.colorScheme.onSurfaceVariant, "")
+        TransactionType.INVESTMENT -> Pair(NegativeRed, "-")
+        TransactionType.LOAN_PAYMENT -> Pair(NegativeRed, "-")
+        TransactionType.SAVINGS -> Pair(MaterialTheme.colorScheme.onSurfaceVariant, "")
     }
 
     val icon = getCategoryIcon(transaction.categoryName)
@@ -46,32 +45,34 @@ fun TransactionItemCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(14.dp))
             .clickable { onClick() },
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon container
+            // Subtle circular icon container
             Box(
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
-                    .background(typeColor.copy(alpha = 0.15f)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = transaction.categoryName,
-                    tint = typeColor,
-                    modifier = Modifier.size(24.dp)
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
@@ -96,12 +97,12 @@ fun TransactionItemCard(
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                            color = MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Text(
                                 text = "SMS",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                             )
                         }
@@ -109,25 +110,12 @@ fun TransactionItemCard(
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                            color = MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Text(
                                 text = "APP",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    } else if (transaction.source == TransactionSource.SMS_AND_NOTIFICATION) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.8f)
-                        ) {
-                            Text(
-                                text = "SMS + Notification",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                             )
                         }
@@ -176,39 +164,44 @@ fun TransactionItemCard(
                 Text(
                     text = "$prefix${CurrencyFormatter.format(transaction.amount)}",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         color = typeColor
                     )
                 )
 
-                if (transaction.confirmationStatus == ConfirmationStatus.PENDING_REVIEW) {
-                    Text(
-                        text = "Pending",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = LoanAmber
-                    )
-                }
+                Text(
+                    text = when (transaction.type) {
+                        TransactionType.INCOME -> "Credit"
+                        TransactionType.EXPENSE -> "Debit"
+                        TransactionType.TRANSFER -> "Transfer"
+                        TransactionType.INVESTMENT -> "Investment"
+                        TransactionType.LOAN_PAYMENT -> "Loan EMI"
+                        TransactionType.SAVINGS -> "Savings"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
 }
 
 fun getCategoryIcon(categoryName: String): ImageVector {
-    return when (categoryName.lowercase()) {
-        "food" -> Icons.Default.Restaurant
-        "shopping" -> Icons.Default.ShoppingBag
-        "transport" -> Icons.Default.DirectionsCar
-        "bills" -> Icons.Default.Receipt
-        "home" -> Icons.Default.Home
-        "education" -> Icons.Default.School
-        "health" -> Icons.Default.LocalHospital
-        "entertainment" -> Icons.Default.Movie
-        "salary" -> Icons.Default.AttachMoney
-        "investment" -> Icons.Default.TrendingUp
-        "loan" -> Icons.Default.AccountBalance
-        "savings" -> Icons.Default.Savings
-        "cash withdrawal" -> Icons.Default.Atm
-        "transfer" -> Icons.Default.SwapHoriz
-        else -> Icons.Default.Category
+    val lower = categoryName.lowercase()
+    return when {
+        lower.contains("food") || lower.contains("dining") || lower.contains("restaurant") || lower.contains("swiggy") || lower.contains("zomato") -> Icons.Default.Restaurant
+        lower.contains("grocery") || lower.contains("supermarket") || lower.contains("blinkit") || lower.contains("zepto") -> Icons.Default.LocalGroceryStore
+        lower.contains("shopping") || lower.contains("amazon") || lower.contains("flipkart") || lower.contains("myntra") -> Icons.Default.ShoppingBag
+        lower.contains("fuel") || lower.contains("petrol") || lower.contains("diesel") || lower.contains("cng") -> Icons.Default.LocalGasStation
+        lower.contains("transport") || lower.contains("uber") || lower.contains("ola") || lower.contains("metro") || lower.contains("train") || lower.contains("travel") -> Icons.Default.DirectionsTransit
+        lower.contains("bill") || lower.contains("electricity") || lower.contains("water") || lower.contains("broadband") || lower.contains("recharge") -> Icons.Default.Receipt
+        lower.contains("entertainment") || lower.contains("movie") || lower.contains("netflix") || lower.contains("hotstar") || lower.contains("spotify") -> Icons.Default.Movie
+        lower.contains("health") || lower.contains("medical") || lower.contains("pharmacy") || lower.contains("hospital") -> Icons.Default.LocalHospital
+        lower.contains("salary") || lower.contains("income") || lower.contains("payroll") -> Icons.Default.Payments
+        lower.contains("investment") || lower.contains("stock") || lower.contains("mutual") || lower.contains("sip") -> Icons.Default.TrendingUp
+        lower.contains("loan") || lower.contains("emi") -> Icons.Default.CreditCard
+        lower.contains("savings") -> Icons.Default.Savings
+        lower.contains("upi") || lower.contains("transfer") -> Icons.Default.SwapHoriz
+        else -> Icons.Default.AttachMoney
     }
 }

@@ -212,18 +212,21 @@ class FinanceViewModel(
                 confirmationStatus = ConfirmationStatus.CONFIRMED
             )
             repository.insertTransaction(tx)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
     fun updateTransaction(transaction: Transaction) {
         viewModelScope.launch {
             repository.updateTransaction(transaction)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
     fun deleteTransaction(transaction: Transaction) {
         viewModelScope.launch {
             repository.deleteTransaction(transaction)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
@@ -248,18 +251,21 @@ class FinanceViewModel(
             )
             val id = repository.insertAccount(acc)
             repository.recalculateAccountBalance(id)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
     fun updateAccount(account: Account) {
         viewModelScope.launch {
             repository.updateAccount(account)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
     fun deleteAccount(account: Account) {
         viewModelScope.launch {
             repository.deleteAccount(account)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
@@ -274,24 +280,35 @@ class FinanceViewModel(
                 colorHex = colorHex
             )
             repository.insertSavingsGoal(goal)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
+        }
+    }
+
+    fun updateSavingsGoal(goal: SavingsGoal) {
+        viewModelScope.launch {
+            repository.updateSavingsGoal(goal)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
     fun addMoneyToSavings(goalId: Long, amount: Double, sourceAccountId: Long?) {
         viewModelScope.launch {
             repository.addMoneyToSavingsGoal(goalId, amount, sourceAccountId)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
     fun withdrawMoneyFromSavings(goalId: Long, amount: Double, targetAccountId: Long?) {
         viewModelScope.launch {
             repository.withdrawMoneyFromSavingsGoal(goalId, amount, targetAccountId)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
     fun deleteSavingsGoal(goal: SavingsGoal) {
         viewModelScope.launch {
             repository.deleteSavingsGoal(goal)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
@@ -306,18 +323,21 @@ class FinanceViewModel(
                 notes = notes
             )
             repository.insertInvestment(inv, deductAccountId)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
     fun updateInvestment(investment: Investment) {
         viewModelScope.launch {
             repository.updateInvestment(investment)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
     fun deleteInvestment(investment: Investment) {
         viewModelScope.launch {
             repository.deleteInvestment(investment)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
@@ -331,11 +351,11 @@ class FinanceViewModel(
         emiAmount: Double,
         dueDayOfMonth: Int,
         totalEmis: Int,
-        notes: String
+        notes: String = "",
+        nextDueDateMillis: Long = System.currentTimeMillis(),
+        enableReminder: Boolean = true
     ) {
         viewModelScope.launch {
-            val now = System.currentTimeMillis()
-            val nextDue = DateUtils.getStartOfDay(now)
             val loan = Loan(
                 name = name,
                 lender = lender,
@@ -348,34 +368,40 @@ class FinanceViewModel(
                 paidEmis = 0,
                 remainingEmis = totalEmis,
                 notes = notes,
-                nextDueDateMillis = nextDue
+                nextDueDateMillis = nextDueDateMillis
             )
             val loanId = repository.insertLoan(loan)
 
-            // Auto-create reminder for this loan
-            val reminder = Reminder(
-                title = "$name EMI",
-                amount = emiAmount,
-                dueDateMillis = nextDue,
-                frequency = ReminderFrequency.MONTHLY,
-                reminderAdvanceDays = 1,
-                linkedLoanId = loanId,
-                notes = "Monthly EMI payment to $lender"
-            )
-            val reminderId = repository.insertReminder(reminder)
-            ReminderScheduler.scheduleReminder(getApplication(), reminder.copy(id = reminderId))
+            // If reminder enabled, schedule single monthly recurring reminder
+            if (enableReminder) {
+                val reminder = Reminder(
+                    title = "$name EMI",
+                    amount = emiAmount,
+                    dueDateMillis = nextDueDateMillis,
+                    frequency = ReminderFrequency.MONTHLY,
+                    reminderAdvanceDays = 0, // Remind on due date
+                    linkedLoanId = loanId,
+                    notes = "Monthly EMI payment to $lender (Due day: $dueDayOfMonth)"
+                )
+                val reminderId = repository.insertReminder(reminder)
+                ReminderScheduler.scheduleReminder(getApplication(), reminder.copy(id = reminderId))
+            }
+
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
     fun payLoanEmi(loanId: Long, emiAmount: Double, accountId: Long) {
         viewModelScope.launch {
             repository.recordEmiPayment(loanId, emiAmount, accountId)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
     fun deleteLoan(loan: Loan) {
         viewModelScope.launch {
             repository.deleteLoan(loan)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
@@ -432,6 +458,7 @@ class FinanceViewModel(
     ) {
         viewModelScope.launch {
             repository.confirmDetectedMessage(message, accountId, category, amount, type, merchant)
+            com.example.widget.FinFlowWidgetManager.updateAllWidgets(getApplication())
         }
     }
 
@@ -473,6 +500,12 @@ class FinanceViewModel(
     }
 
     // --- Settings Actions ---
+    fun updateSettings(settings: AppSettings) {
+        viewModelScope.launch {
+            repository.saveSettings(settings)
+        }
+    }
+
     fun updateAutoConfirm(enabled: Boolean) {
         viewModelScope.launch {
             val current = repository.getSettingsDirect()

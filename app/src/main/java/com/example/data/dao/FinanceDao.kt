@@ -123,6 +123,9 @@ interface FinanceDao {
     @Query("SELECT * FROM savings_goals ORDER BY targetDateMillis ASC")
     fun getAllSavingsGoals(): Flow<List<SavingsGoal>>
 
+    @Query("SELECT * FROM savings_goals ORDER BY targetDateMillis ASC")
+    suspend fun getAllSavingsGoalsDirect(): List<SavingsGoal>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSavingsGoal(goal: SavingsGoal): Long
 
@@ -136,6 +139,9 @@ interface FinanceDao {
     @Query("SELECT * FROM investments ORDER BY dateMillis DESC")
     fun getAllInvestments(): Flow<List<Investment>>
 
+    @Query("SELECT * FROM investments ORDER BY dateMillis DESC")
+    suspend fun getAllInvestmentsDirect(): List<Investment>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInvestment(investment: Investment): Long
 
@@ -148,6 +154,9 @@ interface FinanceDao {
     // --- Loans ---
     @Query("SELECT * FROM loans ORDER BY isClosed ASC, nextDueDateMillis ASC")
     fun getAllLoans(): Flow<List<Loan>>
+
+    @Query("SELECT * FROM loans ORDER BY isClosed ASC, nextDueDateMillis ASC")
+    suspend fun getAllLoansDirect(): List<Loan>
 
     @Query("SELECT * FROM loans WHERE id = :id")
     suspend fun getLoanById(id: Long): Loan?
@@ -167,6 +176,15 @@ interface FinanceDao {
 
     @Query("SELECT * FROM reminders WHERE isCompleted = 0 ORDER BY dueDateMillis ASC")
     fun getActiveReminders(): Flow<List<Reminder>>
+
+    @Query("SELECT * FROM reminders WHERE isCompleted = 0 ORDER BY dueDateMillis ASC")
+    suspend fun getActiveRemindersDirect(): List<Reminder>
+
+    @Query("SELECT * FROM reminders WHERE id = :id")
+    suspend fun getReminderById(id: Long): Reminder?
+
+    @Query("SELECT * FROM reminders WHERE linkedLoanId = :loanId LIMIT 1")
+    suspend fun getReminderByLinkedLoanId(loanId: Long): Reminder?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReminder(reminder: Reminder): Long

@@ -267,6 +267,21 @@ class FinanceRepository(private val dao: FinanceDao) {
         )
         dao.updateLoan(updatedLoan)
 
+        // Update linked reminder with the new next due date
+        val linkedReminder = dao.getReminderByLinkedLoanId(loanId)
+        if (linkedReminder != null) {
+            if (updatedLoan.isClosed) {
+                dao.updateReminder(linkedReminder.copy(isCompleted = true))
+            } else {
+                dao.updateReminder(
+                    linkedReminder.copy(
+                        dueDateMillis = nextDueCal.timeInMillis,
+                        isCompleted = false
+                    )
+                )
+            }
+        }
+
         val account = dao.getAccountByIdSuspend(accountId)
         val tx = Transaction(
             amount = emiAmount,

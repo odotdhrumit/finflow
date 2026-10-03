@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -21,8 +22,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.entity.AccountType
-import com.example.ui.theme.EmeraldLight
-import com.example.ui.theme.EmeraldPrimary
 import com.example.viewmodel.FinanceViewModel
 
 @Composable
@@ -83,24 +82,27 @@ fun OnboardingScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(90.dp)
+                                .size(96.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.primaryContainer),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.AccountBalanceWallet,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(48.dp)
+                                painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.ic_oryvo_logo),
+                                contentDescription = "ORYVO Logo",
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(56.dp)
                             )
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
 
                         Text(
-                            text = "Welcome to FinFlow",
-                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                            text = "Welcome to ORYVO",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            ),
                             textAlign = TextAlign.Center
                         )
 
@@ -195,7 +197,7 @@ fun OnboardingScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = "FinFlow can automatically parse bank debit and credit SMS messages and notifications for instant transaction tracking.",
+                            text = "ORYVO can automatically parse bank debit and credit SMS messages and notifications for instant transaction tracking.",
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -204,8 +206,9 @@ fun OnboardingScreen(
                         Spacer(modifier = Modifier.height(24.dp))
 
                         Card(
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                         ) {
                             Row(
                                 modifier = Modifier
@@ -260,8 +263,9 @@ fun OnboardingScreen(
                         Spacer(modifier = Modifier.height(20.dp))
 
                         Card(
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(

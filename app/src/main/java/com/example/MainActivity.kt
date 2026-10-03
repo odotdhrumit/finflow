@@ -33,6 +33,7 @@ enum class MoreSubScreen {
     CATEGORIES,
     SMS_DETECTION,
     NOTIFICATION_DETECTION,
+    PERMISSIONS_DETECTION,
     ANALYTICS,
     SECURITY,
     BACKUP_EXPORT,
@@ -84,11 +85,43 @@ fun MainAppContent(
     val appSettings by viewModel.appSettings.collectAsState()
 
     var selectedTab by remember { mutableStateOf(0) }
+    var financeInitialTab by remember { mutableStateOf(0) }
     var moreSubScreen by remember { mutableStateOf(MoreSubScreen.NONE) }
     var showQuickAddSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialScreen) {
         when (initialScreen) {
+            "dashboard", "home" -> {
+                selectedTab = 0
+                moreSubScreen = MoreSubScreen.NONE
+            }
+            "transactions" -> {
+                selectedTab = 1
+                moreSubScreen = MoreSubScreen.NONE
+            }
+            "savings" -> {
+                selectedTab = 3
+                financeInitialTab = 0
+                moreSubScreen = MoreSubScreen.NONE
+            }
+            "investments" -> {
+                selectedTab = 3
+                financeInitialTab = 1
+                moreSubScreen = MoreSubScreen.NONE
+            }
+            "loans", "emi" -> {
+                selectedTab = 3
+                financeInitialTab = 2
+                moreSubScreen = MoreSubScreen.NONE
+            }
+            "finance" -> {
+                selectedTab = 3
+                moreSubScreen = MoreSubScreen.NONE
+            }
+            "accounts" -> {
+                selectedTab = 4
+                moreSubScreen = MoreSubScreen.ACCOUNTS
+            }
             "sms_detection" -> {
                 selectedTab = 4
                 moreSubScreen = MoreSubScreen.SMS_DETECTION
@@ -96,6 +129,14 @@ fun MainAppContent(
             "reminders" -> {
                 selectedTab = 4
                 moreSubScreen = MoreSubScreen.REMINDERS
+            }
+            "permissions" -> {
+                selectedTab = 4
+                moreSubScreen = MoreSubScreen.PERMISSIONS_DETECTION
+            }
+            "security" -> {
+                selectedTab = 4
+                moreSubScreen = MoreSubScreen.SECURITY
             }
         }
     }
@@ -109,6 +150,18 @@ fun MainAppContent(
         BackHandler {
             selectedTab = 0
         }
+    }
+
+    // 0. Minimal ORYVO Splash Screen
+    var isInitialSplashVisible by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(650)
+        isInitialSplashVisible = false
+    }
+
+    if (isInitialSplashVisible) {
+        com.example.ui.components.OryvoSplashScreen()
+        return
     }
 
     // 1. App Lock Screen
@@ -135,8 +188,16 @@ fun MainAppContent(
             if (moreSubScreen == MoreSubScreen.NONE) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 8.dp
+                    tonalElevation = 2.dp
                 ) {
+                    val navItemColors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
                     NavigationBarItem(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
@@ -146,7 +207,8 @@ fun MainAppContent(
                                 contentDescription = "Home"
                             )
                         },
-                        label = { Text("Home", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) },
+                        label = { Text("Home", fontWeight = if (selectedTab == 0) FontWeight.SemiBold else FontWeight.Normal) },
+                        colors = navItemColors,
                         modifier = Modifier.testTag("nav_home")
                     )
 
@@ -159,7 +221,8 @@ fun MainAppContent(
                                 contentDescription = "Transactions"
                             )
                         },
-                        label = { Text("Transactions", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) },
+                        label = { Text("Transactions", fontWeight = if (selectedTab == 1) FontWeight.SemiBold else FontWeight.Normal) },
+                        colors = navItemColors,
                         modifier = Modifier.testTag("nav_transactions")
                     )
 
@@ -171,20 +234,21 @@ fun MainAppContent(
                             Surface(
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(44.dp),
-                                shadowElevation = 4.dp
+                                modifier = Modifier.size(40.dp),
+                                shadowElevation = 2.dp
                             ) {
                                 Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Default.Add,
                                         contentDescription = "Add Transaction",
                                         tint = Color.White,
-                                        modifier = Modifier.size(26.dp)
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                             }
                         },
-                        label = { Text("Add", fontWeight = FontWeight.Bold) },
+                        label = { Text("Add", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary) },
+                        colors = navItemColors,
                         modifier = Modifier.testTag("nav_add")
                     )
 
@@ -197,7 +261,8 @@ fun MainAppContent(
                                 contentDescription = "Finance"
                             )
                         },
-                        label = { Text("Finance", fontWeight = if (selectedTab == 3) FontWeight.Bold else FontWeight.Normal) },
+                        label = { Text("Finance", fontWeight = if (selectedTab == 3) FontWeight.SemiBold else FontWeight.Normal) },
+                        colors = navItemColors,
                         modifier = Modifier.testTag("nav_finance")
                     )
 
@@ -207,10 +272,11 @@ fun MainAppContent(
                         icon = {
                             Icon(
                                 imageVector = if (selectedTab == 4) Icons.Filled.MoreHoriz else Icons.Outlined.MoreHoriz,
-                                contentDescription = "More"
+                                contentDescription = "Settings"
                             )
                         },
-                        label = { Text("More", fontWeight = if (selectedTab == 4) FontWeight.Bold else FontWeight.Normal) },
+                        label = { Text("Settings", fontWeight = if (selectedTab == 4) FontWeight.SemiBold else FontWeight.Normal) },
+                        colors = navItemColors,
                         modifier = Modifier.testTag("nav_more")
                     )
                 }
@@ -241,7 +307,7 @@ fun MainAppContent(
                     onOpenQuickAdd = { showQuickAddSheet = true }
                 )
                 1 -> TransactionsScreen(viewModel = viewModel)
-                3 -> FinanceScreen(viewModel = viewModel)
+                3 -> FinanceScreen(viewModel = viewModel, initialTab = financeInitialTab)
                 4 -> {
                     when (moreSubScreen) {
                         MoreSubScreen.NONE -> MoreScreen(
@@ -249,12 +315,18 @@ fun MainAppContent(
                             onNavigateToAccounts = { moreSubScreen = MoreSubScreen.ACCOUNTS },
                             onNavigateToReminders = { moreSubScreen = MoreSubScreen.REMINDERS },
                             onNavigateToCategories = { moreSubScreen = MoreSubScreen.CATEGORIES },
+                            onNavigateToPermissionsDetection = { moreSubScreen = MoreSubScreen.PERMISSIONS_DETECTION },
                             onNavigateToSmsDetection = { moreSubScreen = MoreSubScreen.SMS_DETECTION },
                             onNavigateToNotificationDetection = { moreSubScreen = MoreSubScreen.NOTIFICATION_DETECTION },
                             onNavigateToAnalytics = { moreSubScreen = MoreSubScreen.ANALYTICS },
                             onNavigateToSecurity = { moreSubScreen = MoreSubScreen.SECURITY },
                             onNavigateToBackupExport = { moreSubScreen = MoreSubScreen.BACKUP_EXPORT },
                             onNavigateToParserDebug = { moreSubScreen = MoreSubScreen.PARSER_DEBUG }
+                        )
+                        MoreSubScreen.PERMISSIONS_DETECTION -> PermissionsDetectionScreen(
+                            viewModel = viewModel,
+                            onNavigateBack = { moreSubScreen = MoreSubScreen.NONE },
+                            onNavigateToDebugger = { moreSubScreen = MoreSubScreen.PARSER_DEBUG }
                         )
                         MoreSubScreen.ACCOUNTS -> AccountsScreen(
                             viewModel = viewModel,

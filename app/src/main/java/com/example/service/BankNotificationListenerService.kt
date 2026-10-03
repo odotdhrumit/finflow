@@ -56,7 +56,20 @@ class BankNotificationListenerService : NotificationListenerService() {
 
             val parsed = SmsTransactionParser.parse(title, fullContent, sbn.postTime)
             if (parsed != null) {
-                repository.processParsedTransaction(parsed, DetectedSourceType.NOTIFICATION)
+                val processed = repository.processParsedTransaction(parsed, DetectedSourceType.NOTIFICATION)
+                if (processed) {
+                    com.example.util.TransactionNotificationManager.showTransactionAlert(
+                        context = this@BankNotificationListenerService,
+                        amount = parsed.amount,
+                        isDebit = parsed.isDebit,
+                        bank = parsed.bank,
+                        accountLast4 = parsed.accountLast4,
+                        merchant = parsed.merchant,
+                        balance = parsed.balanceAfterTransaction,
+                        upiId = parsed.upiId
+                    )
+                    com.example.widget.FinFlowWidgetManager.updateAllWidgets(this@BankNotificationListenerService)
+                }
             }
         }
     }

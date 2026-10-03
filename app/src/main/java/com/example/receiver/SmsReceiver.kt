@@ -13,6 +13,7 @@ import com.example.R
 import com.example.data.entity.DetectedSourceType
 import com.example.parser.SmsTransactionParser
 import com.example.util.CurrencyFormatter
+import com.example.util.TransactionNotificationManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -49,39 +50,19 @@ class SmsReceiver : BroadcastReceiver() {
             if (parsed != null) {
                 val processed = repository.processParsedTransaction(parsed, DetectedSourceType.SMS)
                 if (processed) {
-                    showNotification(context, parsed.bank, parsed.amount, parsed.isDebit, parsed.merchant)
+                    TransactionNotificationManager.showTransactionAlert(
+                        context = context,
+                        amount = parsed.amount,
+                        isDebit = parsed.isDebit,
+                        bank = parsed.bank,
+                        accountLast4 = parsed.accountLast4,
+                        merchant = parsed.merchant,
+                        balance = parsed.balanceAfterTransaction,
+                        upiId = parsed.upiId
+                    )
+                    com.example.widget.FinFlowWidgetManager.updateAllWidgets(context)
                 }
             }
         }
-    }
-
-    private fun showNotification(context: Context, bank: String?, amount: Double, isDebit: Boolean, merchant: String) {
-        val openIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra("OPEN_SCREEN", "sms_detection")
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            1001,
-            openIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val displayBank = bank ?: "Bank"
-        val formattedAmt = CurrencyFormatter.format(amount)
-        val actionText = if (isDebit) "Debited" else "Credited"
-
-        val notification = NotificationCompat.Builder(context, FinFlowApplication.CHANNEL_DETECTIONS)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Transaction Detected ($displayBank)")
-            .setContentText("$formattedAmt $actionText at $merchant")
-            .setStyle(NotificationCompat.BigTextStyle().bigText("$formattedAmt $actionText from $displayBank at $merchant. Tap to review."))
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
-            .build()
-
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify((System.currentTimeMillis() % 10000).toInt(), notification)
     }
 }

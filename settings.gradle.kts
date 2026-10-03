@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "FinFlow"
+rootProject.name = "ORYVO"
 
 include(":app")

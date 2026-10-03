@@ -1,3 +1,8 @@
 <resources>
-    <string name="app_name">FinFlow</string>
+    <string name="app_name">ORYVO</string>
+    <string name="widget_mega_label">ORYVO Mega Widget</string>
+    <string name="widget_mega_desc">Multi-size financial overview with balance, savings, investments, EMI, and transactions.</string>
+    <!-- Backwards compatible string keys -->
+    <string name="widget_financial_overview_label">ORYVO Mega Widget</string>
+    <string name="widget_financial_overview_desc">Multi-size financial overview with balance, savings, investments, EMI, and transactions.</string>
 </resources>

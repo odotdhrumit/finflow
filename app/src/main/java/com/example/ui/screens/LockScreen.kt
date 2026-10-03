@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.example.ui.theme.ExpenseRed
@@ -87,7 +88,7 @@ fun LockScreen(
                 }
 
                 val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                    .setTitle("FinFlow Security")
+                    .setTitle("ORYVO Security")
                     .setSubtitle("Confirm your fingerprint or face to unlock")
                     .setNegativeButtonText("Use PIN")
                     .setAllowedAuthenticators(
@@ -95,7 +96,6 @@ fun LockScreen(
                                 BiometricManager.Authenticators.BIOMETRIC_WEAK
                     )
                     .build()
-
                 val prompt = BiometricPrompt(activity, executor, callback)
                 prompt.authenticate(promptInfo)
             }
@@ -125,24 +125,27 @@ fun LockScreen(
         ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(72.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(32.dp)
+                    painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.ic_oryvo_logo),
+                    contentDescription = "ORYVO Logo",
+                    tint = androidx.compose.ui.graphics.Color.Unspecified,
+                    modifier = Modifier.size(44.dp)
                 )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "FinFlow is Locked",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                text = "ORYVO is Locked",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
             )
 
             Spacer(modifier = Modifier.height(4.dp))

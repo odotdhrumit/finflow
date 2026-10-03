@@ -1,8 +1,10 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
@@ -14,8 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,14 +29,6 @@ fun AccountCard(
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val gradientColors = when (account.accountType) {
-        AccountType.BANK -> listOf(Color(0xFF1E3A8A), Color(0xFF3B82F6))
-        AccountType.CASH -> listOf(Color(0xFFB45309), Color(0xFFF59E0B))
-        AccountType.CREDIT_CARD -> listOf(Color(0xFF4C1D95), Color(0xFF7C3AED))
-        AccountType.WALLET -> listOf(Color(0xFF065F46), Color(0xFF10B981))
-        AccountType.OTHER -> listOf(Color(0xFF334155), Color(0xFF64748B))
-    }
-
     val typeIcon = when (account.accountType) {
         AccountType.BANK -> Icons.Default.AccountBalance
         AccountType.CASH -> Icons.Default.Money
@@ -45,17 +37,23 @@ fun AccountCard(
         AccountType.OTHER -> Icons.Default.AccountBalance
     }
 
-    Box(
+    Card(
         modifier = modifier
-            .width(220.dp)
-            .height(130.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(Brush.linearGradient(gradientColors))
-            .clickable { onClick() }
-            .padding(16.dp)
+            .width(200.dp)
+            .height(116.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { onClick() },
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
@@ -63,46 +61,61 @@ fun AccountCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = account.name,
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
                         ),
                         maxLines = 1
                     )
                     if (account.accountNumberLast4.isNotEmpty()) {
                         Text(
-                            text = "****${account.accountNumberLast4}",
+                            text = "•••• ${account.accountNumberLast4}",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color.White.copy(alpha = 0.75f),
-                                letterSpacing = 1.sp
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                letterSpacing = 0.5.sp
+                            )
+                        )
+                    } else {
+                        Text(
+                            text = account.accountType.name.replace("_", " "),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         )
                     }
                 }
 
-                Icon(
-                    imageVector = typeIcon,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.85f),
-                    modifier = Modifier.size(24.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = typeIcon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
 
             Column {
                 Text(
                     text = "Balance",
                     style = MaterialTheme.typography.labelSmall.copy(
-                        color = Color.White.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
                 Text(
                     text = CurrencyFormatter.format(account.currentBalance),
                     style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 )
             }

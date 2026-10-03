@@ -74,7 +74,9 @@ fun CategoriesScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Row(
                         modifier = Modifier
@@ -190,7 +192,7 @@ fun CategoriesScreen(
                             viewModel.addCategory(
                                 name = name.trim(),
                                 iconName = "Category",
-                                colorHex = if (isIncome) "#10B981" else "#3B82F6",
+                                colorHex = if (isIncome) "#168A5B" else "#17324D",
                                 isIncome = isIncome,
                                 keywords = keywords.trim()
                             )

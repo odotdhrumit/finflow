@@ -12,12 +12,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = EmeraldLight,
-    onPrimary = Color.Black,
-    primaryContainer = EmeraldDark,
-    onPrimaryContainer = Color.White,
-    secondary = InvestmentIndigo,
+    primary = FinFlowSoftPurple,
+    onPrimary = Color(0xFF130E1E),
+    primaryContainer = Color(0xFF38205C),
+    onPrimaryContainer = Color(0xFFEADDF9),
+    secondary = FinFlowSecondaryPurple,
     onSecondary = Color.White,
+    secondaryContainer = Color(0xFF35204C),
+    onSecondaryContainer = FinFlowSoftPurple,
+    tertiary = FinFlowSoftBlue,
+    onTertiary = Color(0xFF130E1E),
     background = DarkBackground,
     onBackground = DarkTextPrimary,
     surface = DarkSurface,
@@ -25,32 +29,39 @@ private val DarkColorScheme = darkColorScheme(
     surfaceVariant = DarkSurfaceVariant,
     onSurfaceVariant = DarkTextSecondary,
     outline = DarkBorder,
-    error = ExpenseRed,
+    error = DarkNegativeRed,
     onError = Color.White
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = EmeraldPrimary,
+    primary = FinFlowPrimaryPurple,              // #6F2DBD (Primary buttons, selected nav, actions)
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFD1FAE5),
-    onPrimaryContainer = EmeraldDark,
-    secondary = InvestmentIndigo,
+    primaryContainer = Color(0xFFF0E5FA),
+    onPrimaryContainer = FinFlowPrimaryPurple,
+    secondary = FinFlowSecondaryPurple,          // #A663CC (Secondary actions, highlights)
     onSecondary = Color.White,
-    background = LightBackground,
-    onBackground = LightTextPrimary,
-    surface = LightSurface,
-    onSurface = LightTextPrimary,
-    surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = LightTextSecondary,
-    outline = LightBorder,
-    error = ExpenseRed,
+    secondaryContainer = Color(0xFFF5EDFA),
+    onSecondaryContainer = FinFlowSecondaryPurple,
+    tertiary = FinFlowSoftPurple,                // #B298DC (Subtle supporting UI)
+    onTertiary = Color.White,
+    tertiaryContainer = FinFlowSoftBlue,         // #B8D0EB
+    onTertiaryContainer = FinFlowPrimaryPurple,
+    background = FinFlowBackground,              // #FAF9FE (Clean, very light background)
+    onBackground = FinFlowTextPrimary,
+    surface = FinFlowSurface,                    // #FFFFFF (Clean white cards)
+    onSurface = FinFlowTextPrimary,
+    surfaceVariant = FinFlowSurfaceVariant,      // #F3EFFB (Light tinted surfaces)
+    onSurfaceVariant = FinFlowTextSecondary,
+    outline = FinFlowBorder,                     // #E4DFEE (Soft subtle borders)
+    error = FinFlowExpense,
+    errorContainer = FinFlowExpenseLight,
     onError = Color.White
 )
 
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Keep our brand emerald palette consistent
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {

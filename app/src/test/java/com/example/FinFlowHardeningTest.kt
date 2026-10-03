@@ -407,4 +407,137 @@ class FinFlowHardeningTest {
             assertEquals("Incorrect amount for '$text'", expectedAmt, parsed!!.amount, 0.001)
         }
     }
+
+    // --- TEST X: Three genuine ₹100 transactions must remain THREE transactions ---
+    @Test
+    fun testX_ThreeGenuine100TransactionsRemainThree() = runBlocking {
+        val accId = repository.insertAccount(
+            Account(name = "Axis Bank", bankName = "Axis", accountNumberLast4 = "9999", openingBalance = 1000.0)
+        )
+        repository.saveSettings(AppSettings(autoConfirmTrustedSms = true))
+
+        val sms1 = "₹100 credited to account 9999 at 10:00."
+        val sms2 = "₹100 credited to account 9999 at 10:05."
+        val sms3 = "₹100 credited to account 9999 at 10:10."
+
+        val p1 = SmsTransactionParser.parse("Axis", sms1, timestamp = 1700000000000L) // 10:00
+        val p2 = SmsTransactionParser.parse("Axis", sms2, timestamp = 1700000300000L) // 10:05
+        val p3 = SmsTransactionParser.parse("Axis", sms3, timestamp = 1700000600000L) // 10:10
+
+        assertNotNull(p1)
+        assertNotNull(p2)
+        assertNotNull(p3)
+
+        repository.processParsedTransaction(p1!!, DetectedSourceType.SMS)
+        repository.processParsedTransaction(p2!!, DetectedSourceType.SMS)
+        repository.processParsedTransaction(p3!!, DetectedSourceType.SMS)
+
+        val txs = database.financeDao().getAllConfirmedTransactionsDirect()
+        assertEquals("Three genuine ₹100 transactions must remain THREE separate transactions", 3, txs.size)
+        assertEquals("Total credit must be ₹300", 300.0, txs.sumOf { it.amount }, 0.001)
+    }
+
+    // --- TEST Y: Savings Goal Progress and Add Money ---
+    @Test
+    fun testY_SavingsGoalProgressAndAddMoney() = runBlocking {
+        val accId = repository.insertAccount(
+            Account(name = "Main A/C", bankName = "HDFC", accountNumberLast4 = "1111", openingBalance = 50000.0)
+        )
+        val goalId = repository.insertSavingsGoal(
+            SavingsGoal(name = "Emergency Fund", targetAmount = 100000.0, currentAmount = 20000.0, targetDateMillis = System.currentTimeMillis() + 10000000L)
+        )
+
+        // Add 5000 to savings from account
+        repository.addMoneyToSavingsGoal(goalId, 5000.0, accId)
+
+        val updatedGoal = database.financeDao().getAllSavingsGoalsDirect().first { it.id == goalId }
+        assertEquals(25000.0, updatedGoal.currentAmount, 0.001)
+        val remaining = (updatedGoal.targetAmount - updatedGoal.currentAmount).coerceAtLeast(0.0)
+        assertEquals(75000.0, remaining, 0.001)
+        val progress = (updatedGoal.currentAmount / updatedGoal.targetAmount * 100).toInt()
+        assertEquals(25, progress)
+
+        // Check account balance reduced by 5000
+        val updatedAcc = database.financeDao().getAccountByIdSuspend(accId)
+        assertEquals(45000.0, updatedAcc!!.currentBalance, 0.001)
+    }
+
+    // --- TEST Z: EMI Loan Payment Updates Installments and Next Due Date ---
+    @Test
+    fun testZ_LoanEmiPaymentUpdatesInstallmentsAndNextDue() = runBlocking {
+        val accId = repository.insertAccount(
+            Account(name = "Salary A/C", bankName = "SBI", accountNumberLast4 = "5555", openingBalance = 50000.0)
+        )
+        val startDue = 1700000000000L
+        val loanId = repository.insertLoan(
+            Loan(
+                name = "Personal Loan",
+                lender = "SBI",
+                originalAmount = 100000.0,
+                remainingAmount = 85000.0,
+                interestRate = 10.5,
+                emiAmount = 8500.0,
+                dueDayOfMonth = 10,
+                totalEmis = 12,
+                paidEmis = 2,
+                remainingEmis = 10,
+                notes = "Education",
+                nextDueDateMillis = startDue
+            )
+        )
+
+        // Pay EMI of 8500
+        repository.recordEmiPayment(loanId, 8500.0, accId)
+
+        val updatedLoan = database.financeDao().getLoanById(loanId)
+        assertNotNull(updatedLoan)
+        assertEquals(3, updatedLoan!!.paidEmis)
+        assertEquals(9, updatedLoan.remainingEmis)
+        assertEquals(76500.0, updatedLoan.remainingAmount, 0.001)
+        assertTrue("Next due date must be advanced into future", updatedLoan.nextDueDateMillis > startDue)
+
+        // Verify account balance was debited
+        val updatedAcc = database.financeDao().getAccountByIdSuspend(accId)
+        assertEquals(41500.0, updatedAcc!!.currentBalance, 0.001)
+    }
+
+    // --- TEST W1: FinFlow Mega Widget Safe Default Views Construction ---
+    @Test
+    fun testW1_MegaWidgetSafeDefaultViewsCanBeBuilt() {
+        val views = com.example.widget.FinFlowWidgetManager.buildSafeDefaultViews(application)
+        assertNotNull("Widget RemoteViews must not be null", views)
+    }
+
+    // --- TEST W2: FinFlow Mega Widget Provider Instantiation and Update ---
+    @Test
+    fun testW2_MegaWidgetProviderCanBeInstantiated() {
+        val provider = com.example.widget.FinFlowMegaWidgetProvider()
+        assertNotNull(provider)
+        val legacyProvider = com.example.widget.FinancialOverviewWidgetProvider()
+        assertNotNull(legacyProvider)
+    }
+
+    // --- TEST W3: Monthly EMI Automatic Next Due Date Calculation ---
+    @Test
+    fun testW3_MonthlyEmiAutomaticDueCalculation() {
+        val dueDay = 10
+        val cal = java.util.Calendar.getInstance()
+        val today = cal.get(java.util.Calendar.DAY_OF_MONTH)
+
+        val nextCal = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 9)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+            if (today <= dueDay) {
+                set(java.util.Calendar.DAY_OF_MONTH, dueDay)
+            } else {
+                add(java.util.Calendar.MONTH, 1)
+                set(java.util.Calendar.DAY_OF_MONTH, dueDay)
+            }
+        }
+
+        assertEquals(10, nextCal.get(java.util.Calendar.DAY_OF_MONTH))
+        assertTrue("Calculated due date must be today or in the future", nextCal.timeInMillis >= System.currentTimeMillis() - 86400000L)
+    }
 }

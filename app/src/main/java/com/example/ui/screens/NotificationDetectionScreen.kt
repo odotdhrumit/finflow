@@ -67,8 +67,10 @@ fun NotificationDetectionScreen(
             // Main Toggle & Permission Status Card
             item {
                 Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Column(modifier = Modifier.padding(18.dp)) {
                         Row(
@@ -124,7 +126,7 @@ fun NotificationDetectionScreen(
                                 )
                                 Text(
                                     text = if (isNotificationServiceEnabled)
-                                        "FinFlow has authorization to detect financial transactions from banking and UPI apps."
+                                        "ORYVO has authorization to detect financial transactions from banking and UPI apps."
                                     else
                                         "Android requires special Notification Listener permission to read incoming transaction alerts.",
                                     style = MaterialTheme.typography.bodySmall,
@@ -169,8 +171,10 @@ fun NotificationDetectionScreen(
             // Supported Apps Information
             item {
                 Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Column(modifier = Modifier.padding(18.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -189,7 +193,7 @@ fun NotificationDetectionScreen(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         Text(
-                            text = "FinFlow automatically listens for debit, credit, and transfer notifications from:",
+                            text = "ORYVO automatically listens for debit, credit, and transfer notifications from:",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -252,7 +256,7 @@ fun NotificationDetectionScreen(
                             text = "• Only alerts from recognized financial apps are processed.\n\n" +
                                     "• OTPs, two-factor authentication codes, and chat notifications are immediately dropped.\n\n" +
                                     "• Parsing runs entirely on device. No internet connectivity is required or used.\n\n" +
-                                    "• If an SMS and Notification arrive for the same transaction, FinFlow merges them into one single record.",
+                                    "• If an SMS and Notification arrive for the same transaction, ORYVO merges them into one single record.",
                             style = MaterialTheme.typography.bodySmall,
                             lineHeight = 20.sp
                         )
@@ -267,7 +271,7 @@ fun NotificationDetectionScreen(
             onDismissRequest = { showPermissionWarningDialog = false },
             title = { Text("Notification Access Required", fontWeight = FontWeight.Bold) },
             text = {
-                Text("Android requires you to grant Notification Access in System Settings before FinFlow can detect transaction notifications from your banking apps.")
+                Text("Android requires you to grant Notification Access in System Settings before ORYVO can detect transaction notifications from your banking apps.")
             },
             confirmButton = {
                 Button(

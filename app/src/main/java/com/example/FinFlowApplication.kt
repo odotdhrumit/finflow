@@ -33,7 +33,36 @@ class FinFlowApplication : Application() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            // Reminders channel
+            // Dedicated High Priority Transaction Alerts Channel (Heads-up notification)
+            val transactionAlertsChannel = NotificationChannel(
+                CHANNEL_TRANSACTION_ALERTS,
+                "ORYVO Transaction Alerts",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Immediate heads-up alerts for credited income and debited expenses"
+                enableVibration(true)
+            }
+
+            // EMI Reminders Channel
+            val emiChannel = NotificationChannel(
+                CHANNEL_EMI_REMINDERS,
+                "ORYVO EMI Reminders",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Alerts for upcoming and due loan EMIs"
+                enableVibration(true)
+            }
+
+            // Savings Reminders Channel
+            val savingsChannel = NotificationChannel(
+                CHANNEL_SAVINGS_REMINDERS,
+                "ORYVO Savings Reminders",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Reminders and milestones for your savings goals"
+            }
+
+            // Legacy Reminders channel
             val reminderChannel = NotificationChannel(
                 CHANNEL_REMINDERS,
                 "Payment Reminders",
@@ -43,7 +72,7 @@ class FinFlowApplication : Application() {
                 enableVibration(true)
             }
 
-            // Transaction detection channel
+            // Legacy Transaction detection channel
             val detectionChannel = NotificationChannel(
                 CHANNEL_DETECTIONS,
                 "Transaction Detection",
@@ -52,6 +81,9 @@ class FinFlowApplication : Application() {
                 description = "Alerts for newly detected bank transactions from SMS and apps"
             }
 
+            notificationManager.createNotificationChannel(transactionAlertsChannel)
+            notificationManager.createNotificationChannel(emiChannel)
+            notificationManager.createNotificationChannel(savingsChannel)
             notificationManager.createNotificationChannel(reminderChannel)
             notificationManager.createNotificationChannel(detectionChannel)
         }
@@ -79,6 +111,9 @@ class FinFlowApplication : Application() {
     }
 
     companion object {
+        const val CHANNEL_TRANSACTION_ALERTS = "finflow_transaction_alerts"
+        const val CHANNEL_EMI_REMINDERS = "finflow_emi_reminders"
+        const val CHANNEL_SAVINGS_REMINDERS = "finflow_savings_reminders"
         const val CHANNEL_REMINDERS = "finflow_reminders"
         const val CHANNEL_DETECTIONS = "finflow_detections"
     }
